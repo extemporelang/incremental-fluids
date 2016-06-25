@@ -288,7 +288,7 @@ void)))
             (set! x 0)
             (while (< x w)
             (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
+            (if (< 1700. k)
             (begin
             (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
             (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
@@ -569,7 +569,8 @@ a threshold, but will never exceed `limit' iterations"
           (scaledAdd fs p p s alpha)
           (scaledAdd fs r r z (* -1. alpha))
           (set! maxError (infinityNorm fs r))
-          (if (< maxError 1e-5)
+          (printf "maxError:%f\n" maxError)
+          (if (< maxError 1e-3)
           (begin
             (set! done 1)
             void))
@@ -613,11 +614,15 @@ a threshold, but will never exceed `limit' iterations"
 (bind-func update
   (lambda (fs:FluidSolver* timestep)
   (let ((i:i32 0) (h (tref fs 4)) (w (tref fs 3)) (x:i32 0) (y:i32 0) (u (tref fs 1)))
+    (printinfovat fs)
     (buildRhs fs)
     (buildPressureMatrix fs timestep)
     (buildPreconditioner fs)
     (project fs 600)
+    (printf "Pressure Solution: \n")
+    (matrix (tref fs 8))
     (applyPressure fs timestep)
+    (printinfovat fs)
     (advect (tref fs 0) timestep (tref fs 1) (tref fs 2))
     (advect (tref fs 1) timestep (tref fs 1) (tref fs 2))
     (advect (tref fs 2) timestep (tref fs 1) (tref fs 2))
@@ -635,7 +640,8 @@ a threshold, but will never exceed `limit' iterations"
     (addInFlow:[void,FluidQuantity*,double,double,double,double,double]*
      (tref fs 1) x y (+ x w) (+ y h) u)
     (addInFlow:[void,FluidQuantity*,double,double,double,double,double]*
-     (tref fs 2) x y (+ x w) (+ y h) v)))
+     (tref fs 2) x y (+ x w) (+ y h) v)
+     ))
 
 (bind-func maxTimestep
   "Returns the maximum allowed timestep. Note that the actual timestep
