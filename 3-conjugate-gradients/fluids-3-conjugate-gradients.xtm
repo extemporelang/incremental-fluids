@@ -561,24 +561,31 @@ a threshold, but will never exceed `limit' iterations"
         (pset! s i (pref z i))
         (pset! p i 0.))
       (if (< maxError 1e-5)
-          void)
+          (begin
+            (set! done 1)))
       (set! sigma (dotProduct fs z r))
+
       (dotimes (iter limit)
+
+      (if (= done 0)
+      (begin
         (matrixVectorProduct fs z s)
         (let ((alpha (/ sigma (dotProduct fs z s))))
           (scaledAdd fs p p s alpha)
           (scaledAdd fs r r z (* -1. alpha))
-          (set! maxError (infinityNorm fs r))
-          (if (< maxError 1e-3)
-          (begin
-            (set! done 1)
-            void))
-        (if (= done 0)
+          (set! maxError (infinityNorm fs r)))))
+
+        (if (< maxError 1e-5)
         (begin
-        (applyPreconditioner fs z r)
-        (let ((sigmaNew (dotProduct fs z r)))
-          (scaledAdd fs s z s (/ sigmaNew sigma))
-          (set! sigma sigmaNew)))))))))
+          (set! done 1)
+          void))
+
+        (if (= done 0)
+          (begin
+          (applyPreconditioner fs z r)
+          (let ((sigmaNew (dotProduct fs z r)))
+            (scaledAdd fs s z s (/ sigmaNew sigma))
+            (set! sigma sigmaNew))))))))
 
 (bind-func applyPressure
   "Applies the computed pressure to the velocity field"
