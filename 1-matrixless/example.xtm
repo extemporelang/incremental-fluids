@@ -65,7 +65,7 @@
       (let ((next_time (+ time (convert (* 44100. delta_t)))))
         (callback next_time gl_draw_loop next_time delta_t)))))
 
-(gl_draw_loop (now) (/ 1. 60.))
+(gl_draw_loop (now) (/ 1. 30.))
 
 ;; (bind-func gl_draw_loop
 ;;   (lambda (time:i64 delta_t:double)
