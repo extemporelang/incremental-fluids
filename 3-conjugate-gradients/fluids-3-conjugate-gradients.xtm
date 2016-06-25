@@ -569,7 +569,6 @@ a threshold, but will never exceed `limit' iterations"
           (scaledAdd fs p p s alpha)
           (scaledAdd fs r r z (* -1. alpha))
           (set! maxError (infinityNorm fs r))
-          (printf "maxError:%f\n" maxError)
           (if (< maxError 1e-3)
           (begin
             (set! done 1)
@@ -614,15 +613,11 @@ a threshold, but will never exceed `limit' iterations"
 (bind-func update
   (lambda (fs:FluidSolver* timestep)
   (let ((i:i32 0) (h (tref fs 4)) (w (tref fs 3)) (x:i32 0) (y:i32 0) (u (tref fs 1)))
-    (printinfovat fs)
     (buildRhs fs)
     (buildPressureMatrix fs timestep)
     (buildPreconditioner fs)
     (project fs 600)
-    (printf "Pressure Solution: \n")
-    (matrix (tref fs 8))
     (applyPressure fs timestep)
-    (printinfovat fs)
     (advect (tref fs 0) timestep (tref fs 1) (tref fs 2))
     (advect (tref fs 1) timestep (tref fs 1) (tref fs 2))
     (advect (tref fs 2) timestep (tref fs 1) (tref fs 2))
