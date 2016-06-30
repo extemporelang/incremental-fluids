@@ -18,25 +18,17 @@
 (bind-val SOLID_SPHERE i64 2)
 
 
-;; (bind-macro
-;;   "signum function"
-;;   (sgn n)
-;;   `(cond ((< ,n (convert 0)) (convert -1))
-;;          ((> ,n (convert 0)) (convert 1))
-;;          (else (convert 0))))
+(bind-func sgn
+    (lambda (n:double)
+      (cond ((< n 0) -1)
+            ((> n 0)  1)
+        (else 0))))
 
-(bind-macro
-  "signum function"
-  (sgn n)
-  `(- (convert (< 0. ,n) i32)
-      (convert (< ,n 0.) i32)))
-
-(bind-macro
-  "nonzero signum function"
-  (nsgn n)
-  `(if (< ,n (convert 0))
-       (convert -1)
-       (convert 1)))
+(bind-func nsgn
+  (lambda (n:double)
+  (if (> n 0)
+    (1)
+    (-1))))
 
 (bind-func length
   (lambda (x:double y:double)
@@ -154,8 +146,8 @@
         (let ((dx (- (fabs (pref x 0)) (* (tref sb 2) 0.5)))
               (dy (- (fabs (pref y 0)) (* (tref sb 3) 0.5))))
             (if (> dx dy)
-                (pset! x 0 (* (nsgn (pref x 0)) 0.5 (tref sb 2)))
-                (pset! y 0 (* (nsgn (pref y 0)) 0.5 (tref sb 3))))
+              (pset! x 0 (* (convert (nsgn (pref x 0))) 0.5 (tref sb 2)))
+              (pset! y 0 (* (convert (nsgn (pref y 0))) 0.5 (tref sb 3))))
             (rotate x y (tref sb 4))
             (pset! x 0 (+ (pref x 0) (tref sb 0))))
             (pset! y 0 (+ (pref y 0) (tref sb 1))))
@@ -186,10 +178,10 @@
             (set! y (pref yp 0))
             (if (> (- (fabs x) (* 0.5 (tref sb 2))) (- (fabs y) (* 0.5 (tref sb 3))))
               (begin
-                (pset! nx 0 (nsgn x))
+                (pset! nx 0 (convert (nsgn x)))
                 (pset! ny 0 0.))
               (begin
-                (pset! ny 0 (nsgn y))
+                (pset! ny 0 (convert (nsgn y)))
                 (pset! nx 0 0.)))
             (pset! xp 0 x)
             (pset! yp 0 y)
@@ -289,41 +281,29 @@
   (lambda (fq:FluidQuantity* x y)
     (pref-ptr (tref fq 0) (+ (* y (tref fq 2)) x))))
 
-(bind-func cerp
-  "Cubic intERPolate on grid at coordinates (x, y).
+ (bind-func cerp
+   "Cubic intERPolate on grid at coordinates (x, y).
    Coordinates will be clamped to lie in simulation domain"
-  (lambda (fq:FluidQuantity* x:double y:double)
-    (let ((ox (tref fq 4)) (oy (tref fq 5)) (w:i32 (tref fq 2)) (h:i32 (tref fq 3)))
-      (set! x (min (max (- x ox) 0.) (- (convert w) 1.001)))
-      (set! y (min (max (- y oy) 0.) (- (convert h) 1.001)))
-      (let ((ix (convert x i32))
-            (iy (convert y i32)))
-        (set! x (- x (convert ix)))
-        (set! y (- y (convert iy)))
-        (let ((x0 (max (- ix 1) 0)) (x1 ix) (x2 (+ ix 1)) (x3 (min (+ ix 2) (- w 1)))
-              (y0 (max (- iy 1) 0)) (y1 iy) (y2 (+ iy 1)) (y3 (min (+ iy 2) (- h 1))))
-          (let ((q0 (cerp:[double,double,double,double,double,double]*
-                     (at:[double,FluidQuantity*,i32,i32]* fq x0 y0)
-                     (at:[double,FluidQuantity*,i32,i32]* fq x1 y0)
-                     (at:[double,FluidQuantity*,i32,i32]* fq x2 y0)
-                     (at:[double,FluidQuantity*,i32,i32]* fq x3 y0) x))
-                (q1 (cerp:[double,double,double,double,double,double]*
-                     (at:[double,FluidQuantity*,i32,i32]* fq x0 y1)
-                     (at:[double,FluidQuantity*,i32,i32]* fq x1 y1)
-                     (at:[double,FluidQuantity*,i32,i32]* fq x2 y1)
-                     (at:[double,FluidQuantity*,i32,i32]* fq x3 y1) x))
-                (q2 (cerp:[double,double,double,double,double,double]*
-                     (at:[double,FluidQuantity*,i32,i32]* fq x0 y2)
-                     (at:[double,FluidQuantity*,i32,i32]* fq x1 y2)
-                     (at:[double,FluidQuantity*,i32,i32]* fq x2 y2)
-                     (at:[double,FluidQuantity*,i32,i32]* fq x3 y2) x))
-                (q3 (cerp:[double,double,double,double,double,double]*
-                     (at:[double,FluidQuantity*,i32,i32]* fq x0 y3)
-                     (at:[double,FluidQuantity*,i32,i32]* fq x1 y3)
-                     (at:[double,FluidQuantity*,i32,i32]* fq x2 y3)
-                     (at:[double,FluidQuantity*,i32,i32]* fq x3 y3) x)))
-            (let ((k (cerp:[double,double,double,double,double,double]* q0 q1 q2 q3 y)))
-              (cerp:[double,double,double,double,double,double]* q0 q1 q2 q3 y))))))))
+   (lambda (fq:FluidQuantity* x:double y:double)
+     (let ((ox (tref fq 4)) (oy (tref fq 5)) (w:i32 (tref fq 2)) (h:i32 (tref fq 3)))
+     (set! x (min (max (- x ox) 0.) (- (convert w) 1.001)))
+     (set! y (min (max (- y oy) 0.) (- (convert h) 1.001)))
+     (let ((ix (convert x i32))
+           (iy (convert y i32)))
+       (set! x (- x (convert ix)))
+       (set! y (- y (convert iy)))
+       (let ((x0 (max (- ix 1) 0)) (x1 ix) (x2 (+ ix 1)) (x3 (min (+ ix 2) (- w 1)))
+             (y0 (max (- iy 1) 0)) (y1 iy) (y2 (+ iy 1)) (y3 (min (+ iy 2) (- h 1))))
+           (let ((q0 (cerp:[double,double,double,double,double,double]*
+             (at:[double,FluidQuantity*,i32,i32]* fq x0 y0) (at:[double,FluidQuantity*,i32,i32]* fq x1 y0) (at:[double,FluidQuantity*,i32,i32]* fq x2 y0) (at:[double,FluidQuantity*,i32,i32]* fq x3 y0) x))
+                 (q1 (cerp:[double,double,double,double,double,double]*
+             (at:[double,FluidQuantity*,i32,i32]* fq x0 y1) (at:[double,FluidQuantity*,i32,i32]* fq x1 y1) (at:[double,FluidQuantity*,i32,i32]* fq x2 y1) (at:[double,FluidQuantity*,i32,i32]* fq x3 y1) x))
+                 (q2 (cerp:[double,double,double,double,double,double]*
+             (at:[double,FluidQuantity*,i32,i32]* fq x0 y2) (at:[double,FluidQuantity*,i32,i32]* fq x1 y2) (at:[double,FluidQuantity*,i32,i32]* fq x2 y2) (at:[double,FluidQuantity*,i32,i32]* fq x3 y2) x))
+                 (q3 (cerp:[double,double,double,double,double,double]*
+             (at:[double,FluidQuantity*,i32,i32]* fq x0 y3) (at:[double,FluidQuantity*,i32,i32]* fq x1 y3) (at:[double,FluidQuantity*,i32,i32]* fq x2 y3) (at:[double,FluidQuantity*,i32,i32]* fq x3 y3) x)))
+             (let ((k (cerp:[double,double,double,double,double,double]* q0 q1 q2 q3 y)))
+                (cerp:[double,double,double,double,double,double]* q0 q1 q2 q3 y))))))))
 
 (bind-func lerp
   "Linear intERPolate on grid at coordinates (x, y).
@@ -482,24 +462,21 @@
 
 (bind-func fillSolidMask
   (lambda (fq:FluidQuantity)
-    (let ((x 1) (y 1) (w (tref fq 2)) (h (tref fq 3))
-          (mask (tref fq 11)) (cell (tref fq 9))
-          (normalX (tref fq 7)) (normalY (tref fq 8))
-          (idx 0))
+    (let ((y 1) (x 1) (h (tref fq 3)) (w (tref fq 2)) (mask (tref fq 11)) (cell (tref fq 9))
+      (normalX (tref fq 7)) (normalY (tref fq 8)))
         (while (< y (- h 1))
           (set! x 1)
           (while (< x (- w 1))
-            (set! idx (+ x (* y w)))
-            (if (not (= (pref (tref fq 9) idx) CELL_FLUID))
+            (let ((idx (+ x (* y w))))
+              (if (not (= (pref (tref fq 9) idx) CELL_FLUID))
+                (begin
                 (let ((nx (pref normalX idx))
                       (ny (pref normalY idx)))
-                  (pset! mask idx 0)
-                  (if (and (<> nx 0.)
-                           (<> (pref cell (+ idx (sgn nx))) CELL_FLUID))
+                    (pset! mask idx 0)
+                    (if (and (<> nx 0) (<> (pref cell (+ (convert idx) (sgn nx))) CELL_FLUID))
                       (pset! mask idx (bitwise-or (pref mask idx) 1)))
-                  (if (and (<> ny 0.)
-                           (<> (pref cell (+ idx (* w (sgn ny)))) CELL_FLUID))
-                      (pset! mask idx (bitwise-or (pref mask idx) 2))))))))))
+                    (if (and (<> ny 0) (<> (pref cell (+ (convert idx) (* (convert w) (sgn ny)))) CELL_FLUID))
+                      (pset! mask idx (bitwise-or (pref mask idx) 2))))))))))))
 
 (bind-func extrapolateNormal
   (lambda (fq:FluidQuantity* idx)
@@ -509,41 +486,77 @@
           (srcX (pref src (+ idx (sgn nx))))
           (srcY (pref src (+ idx (* (tref fq 2) (sgn ny))))))
       (/ (+ (* (fabs nx) srcX) (* (fabs ny) srcY)) (+ (fabs nx) (fabs ny))))))
+      (bind-func freeNeighbour
+        (lambda (fq:FluidQuantity* idx border mask)
+          (let ((fqmask:i8* (tref fq 11)) (cell (tref fq 9)))
+            (pset! fqmask idx (bitwise-and (pref fqmask idx) (~ mask)))
+            (if (and (<> (pref cell idx) CELL_FLUID) (= (pref fqmask idx) 0))
+              (begin
+              (set! border (cons idx border))
+              void)
+              void))))
 
-(bind-func freeNeighbour
-  (lambda (fq:FluidQuantity* idx border mask)
-    (let ((mask (tref fq 11)) (cell (tref fq 9)))
-      (pset! mask idx (bitwise-and mask (compl mask)))
-      (if (and (<> (pref cell idx) CELL_FLUID) (= (pref mask idx) 0))
-          (push border idx)
-          void))))
 
 (bind-func extrapolate
-  (lambda (fq:FluidQuantity)
+  (lambda (fq:FluidQuantity*)
     (fillSolidMask fq)
-    (let ((border (stack int)) (normalX (tref fq 7)) (normalY (tref fq 8))
-          (y 1) (w (tref fq 2)) (h (tref fq 3)) (x 1) (idx 0))
+      (let ((border:i32 (list)) (y:i32 1) (x:i32 1) (idx:i32 0)
+            (w:i32 (tref fq 2)) (h:i32 (tref fq 3)) (src (tref fq 0))
+            (normalX (tref fq 7)) (normalY (tref fq 8)))
+        (while (< y (- h 1))
+          (set! x 1)
+          (while (< x (- w 1))
+            (set! idx (+ x (* w y)))
+            (if (and (<> (pref (tref fq 9) idx) CELL_FLUID)
+                     (= (pref (tref fq 11) idx) 0))
+               (set! border (cons idx border)))
+            (set! x (+ 1 x)))
+            (set! y (+ 1 y))
+            (while (not (= 1 1))
+              (set! idx (car border))
+              (set! border (cdr border))
+              (pset! src idx (extrapolateNormal fq idx))
+              (cond
+                ((> (pref normalX (- idx 1)) 0.)
+                  (freeNeighbour fq (- idx 1) border (convert 1 i8)))
+                ((< (pref normalX (+ idx 1)) 0.)
+                  (freeNeighbour fq (+ idx 1) border (convert 1 i8)))
+                ((> (pref normalX (- idx w)) 0.)
+                  (freeNeighbour fq (- idx w) border (convert 1 i8)))
+                ((< (pref normalX (+ idx  w)) 0.)
+                  (freeNeighbour fq (+ idx w) border (convert 1 i8))))
+              )))))
+
+
+
+
+(bind-func extrapolate
+  (lambda (fq:FluidQuantity*)
+    (fillSolidMask fq)
+    (let ((border:i32 (list null)) (normalX (tref fq 7)) (normalY (tref fq 8))
+          (y:i32 1) (w:i32 (tref fq 2)) (h (tref fq 3)) (x:i32 1) (idx:i32 0))
       (while (< y (- h 1))
         (set! x 1)
         (while (< x (- w 1))
           (set! idx (+ x (* w y)))
           (if (and (<> (pref (tref fq 9) idx) CELL_FLUID)
                     (= (pref (tref fq 11) idx) 0))
-              (push border idx))))
-        (while (not (empty? border))
-          (set! idx (top border))
-          (pop border)
-          (pset! (tref fq 0) (extrapolateNormal idx))
+              (set! border (cons (convert idx) border)))
+          (set! x (+ 1 x)))
+          (set! y (+ 1 y))
+        (while (not (= null border))
+          (set! idx (convert (car border)))
+          (set! border (cdr border))
+          (pset! (tref fq 0) idx (extrapolateNormal fq idx))
           (cond
             ((> (pref normalX (- idx 1)) 0)
-              (freeNeighbour (- idx 1) border 1))
+              (freeNeighbour fq (- idx 1) border (convert 1 i8)))
             ((< (pref normalX (+ idx 1)) 0)
-              (freeNeighbour (+ idx 1) border 1))
+              (freeNeighbour fq (+ idx 1) border (convert 1 i8)))
             ((> (pref normalX (- idx w)) 0)
-              (freeNeighbour (- idx w) border 2))
+              (freeNeighbour fq (- idx w) border (convert 1 i8)))
             ((< (pref normalX (+ idx w)) 0)
-              (freeNeighbour (+ idx w) border 2)))))))
-
+              (freeNeighbour fq (+ idx w) border (convert 1 i8))))))))
 
 
 
@@ -716,12 +729,6 @@
 ;; TODO. _src/_dst don't seem to be gettin set. should happen in either
 ;; addInFlows or in applyPressure - need to check if that's happening
 
-(bind-func bit_twiddling
-  (lambda ()
-    (let ((x #x1011))
-      (printf "    x = %x\nxcomp = %x\n" x (~ x)))))
-
-(bit_twiddling)
 
 
 (bind-func buildRhs
