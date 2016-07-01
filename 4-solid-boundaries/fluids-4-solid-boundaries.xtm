@@ -375,23 +375,23 @@
     (tref fq 0)))
 
 (bind-func backProject
-  (lambda (fq:FluidQuantity* x:double* y:double* bodies:SolidBody**)
+  (lambda (fq:FluidQuantity* x:double* y:double* bodies)
     (let ((rx (min (max (convert (- (pref x 0) (tref fq 4)) i32) (convert 0 i32)) (convert (- (tref fq 2) 1) i32)))
           (ry (min (max (convert (- (pref y 0) (tref fq 5)) i32) (convert 0 i32)) (convert (- (tref fq 3) 1) i32)))
-          (cell (tref fq 9)) (w (tref fq 2)) (body (tref fq 10)))
-      (if (<> (pref cell (+ rx (* ry w))) 0)
+          (cell (tref fq 9)) (w (tref fq 2)) (body (tref fq 10)) (tmpbody (nullBody)) (idx (+ rx (* ry w))))
+      (if (<> (pref cell idx) 0)
         (begin
           (pset! x 0 (* (- (pref x 0) (tref fq 4)) (tref fq 6)))
           (pset! y 0 (* (- (pref y 0) (tref fq 5)) (tref fq 6)))
-          (closestSurfacePoint (pref bodies 0) x y)
+          (set! tmpbody (nth bodies (convert (pref body idx))))
           (pset! x 0 (+ (/ (pref x 0) (tref fq 6)) (tref fq 4)))
           (pset! y 0 (+ (/ (pref y 0) (tref fq 6)) (tref fq 5 ))) void)
-        void)
-    void)))
+        void))
+    void))
 
 (bind-func advect
   "Advect grid in velocity field u, v with given timestep"
-  (lambda (fq timestep u v bodies:SolidBody**)
+  (lambda (fq timestep u v bodies)
     (let ((ix:i32 0) (idx 0)
           (iy:i32 0) (idy 0)
           (x:double* (alloc))
@@ -408,16 +408,9 @@
           (set! idx (+ idx 1))))
     void)))
 
-(bind-func noofbodies
-  (lambda (bodies:SolidBody**)
-    (let ((size:i64 0))
-        (while (<> (tref (pref bodies size) 8) NULL_BODY)
-          (set! size (+ size 1)))
-        size)))
-
 (bind-func fillSolidFields
-  (lambda (fq:FluidQuantity* bodies:SolidBody**)
-    (if (<> (noofbodies bodies) 0)
+  (lambda (fq:FluidQuantity* bodies)
+    (if (<> (length bodies) 0)
       (begin
       (let ((iy 0) (idx 0) (ix 0) (body:i8* (tref fq 10)) (cell (tref fq 9))
             (normalX (tref fq 7)) (normalY (tref fq 8)) (nullshape (nullBody)))
@@ -426,10 +419,10 @@
             (let ((x (* (+ (convert ix double) (tref fq 4)) (tref fq 6)))
                   (y (* (+ (convert iy double) (tref fq 5)) (tref fq 6))))
               (pset! body idx 0)
-              (let ((d (distance (pref bodies 0) x y))
-                      (i 1) (size (noofbodies bodies)))
+              (let ((d (distance (nth bodies 0) x y))
+                      (i 1) (size (length bodies)))
                   (while (< i size)
-                    (let ((id (distance (pref bodies i) x y)))
+                    (let ((id (distance (nth bodies i) x y)))
                       (if (< id d)
                         (begin
                           (pset! body idx (convert i))
@@ -442,7 +435,7 @@
               (let ((normxp:double* (alloc)) (normyp:double* (alloc)))
               (pset! normxp 0 (pref normalX idx))
               (pset! normyp 0 (pref normalY idx))
-              (distanceNormal (pref bodies (pref body idx)) normxp normyp x y)
+              (distanceNormal (nth bodies (convert (pref body idx))) normxp normyp x y)
               (pset! normalX idx (pref normxp 0))
               (pset! normalY idx (pref normyp 0))))))))
               void)))
@@ -542,7 +535,7 @@
             (freeNeighbour fq (+ idx w) border (convert 1 i8))))
           )))))
 
-(bind-type FluidSolver <FluidQuantity*,FluidQuantity*,FluidQuantity*,i32,i32,double,double,double*,double*,double*,double*,double*,double*,double*,double*,SolidBody**>
+(bind-type FluidSolver <FluidQuantity*,FluidQuantity*,FluidQuantity*,i32,i32,double,double,double*,double*,double*,double*,double*,double*,double*,double*,List{SolidBody*}*>
   (constructor? . #f)
   "0 - density grid
   1 - u
@@ -955,14 +948,14 @@ a threshold, but will never exceed `limit' iterations"
 (bind-func setBoundaryCondition
   (lambda (fs:FluidSolver*)
     (let ((d (tref fs 0)) (cell (tref d 9)) (body (tref d 10)) (u (tref fs 1)) (hx (tref fs 5))
-          (y 0) (x 0) (idx 0) (w (tref fs 3)) (h (tref fs 4)) (v (tref fs 2))
+          (y 0) (x 0) (idx 0) (w (tref fs 3)) (h (tref fs 4)) (v (tref fs 2)) (bodies (tref fs 15))
           (b null))
       (dotimes (y h)
         (dotimes (x w)
           (set! idx (+ idx 1))
           (if (= (pref (tref d 9) idx) CELL_SOLID)
               (begin
-                (set! b (pref (tref fs 15) (convert (pref body idx) i32)))
+                (set! b (nth bodies (convert (pref body idx))))
                 (pset! (at:[double*,FluidQuantity*,i32,i32]* u x y)
                        0 (velocityX b (* (convert x) hx) (* (+ (convert y) 0.5) hx)))
                 (pset! (at:[double*,FluidQuantity*,i32,i32]* v x y)
@@ -987,10 +980,13 @@ a threshold, but will never exceed `limit' iterations"
   (lambda (fs:FluidSolver* timestep)
   (let ((i:i32 0) (h (tref fs 4)) (w (tref fs 3)) (x:i32 0) (y:i32 0)
         (d (tref fs 0)) (u (tref fs 1)) (v (tref fs 2)) (bodies (tref fs 15)))
+    (print "fillSolidFields\n")
     (fillSolidFields d bodies)
     (fillSolidFields u bodies)
     (fillSolidFields v bodies)
+    (print "setBoundaryCondition\n")
     (setBoundaryCondition fs)
+    (print "buildRhs\n")
     (buildRhs fs)
     (buildPressureMatrix fs timestep)
     (buildPreconditioner fs)
@@ -1012,10 +1008,13 @@ a threshold, but will never exceed `limit' iterations"
 (bind-func addInFlow
   "Set density and x/y velocity in given rectangle to d/u/v, respectively"
   (lambda (fs:FluidSolver* x y w h d u v)
+    (printf "d\n")
     (addInFlow:[void,FluidQuantity*,double,double,double,double,double]*
      (tref fs 0) x y (+ x w) (+ y h) d)
+     (printf "u\n")
     (addInFlow:[void,FluidQuantity*,double,double,double,double,double]*
      (tref fs 1) x y (+ x w) (+ y h) u)
+     (printf "v\n")
     (addInFlow:[void,FluidQuantity*,double,double,double,double,double]*
      (tref fs 2) x y (+ x w) (+ y h) v)
      ))
