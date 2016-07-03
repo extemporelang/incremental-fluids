@@ -1,0 +1,71 @@
+(sys:load "libs/external/glfw3.xtm")
+(sys:load "incremental-fluids-master/4-solid-boundaries/fluids-4-solid-boundaries.xtm")
+
+(bind-val width i32 800)
+(bind-val height i32 600)
+
+(bind-val window GLFWwindow*
+  (begin
+    (glfwSetErrorCallback (convert (get_native_fptr glfw_error_callback)))
+    (glfw_init_and_create_interaction_window width height)))
+
+(sys:load "libs/external/gl/gl-objects.xtm")
+
+;; set up some variables for the OpenGL pipeline
+
+;; this version uses an inverted y axis from the one in gl-objects.xtm
+(bind-func VAO_create_ss_quad
+  (lambda ()
+    (let ((ss_quad_pos_st:float* (salloc 16)))
+      (pfill! ss_quad_pos_st
+              ;; pos     tex_coord
+              -1. -1.    0. 1.
+              -1.  1.    0. 0.
+              1. -1.    1. 1.
+              1.  1.    1. 0.
+              )
+      (let ((vbo (VBO_create ss_quad_pos_st 16))
+            (vao (VAO_create)))
+        (VAO_bind_attribute vao vbo 0 2 4 0) ;; position
+        (VAO_bind_attribute vao vbo 1 2 4 2) ;; tex_coord
+        vao))))
+
+(bind-val tex Texture (Texture_create))
+(bind-val vao VAO* (VAO_create_ss_quad))
+(bind-val sp ShaderProgram
+  (ShaderProgram_create
+   (sys_slurp_file "examples/external/shader-tutorials/texture.vert")
+   (sys_slurp_file "examples/external/shader-tutorials/texture.frag")))
+
+;; ($ (set! sp (ShaderProgram_create
+;;              (sys_slurp_file "1-matrixless/texture.vert")
+;;              (sys_slurp_file "1-matrixless/texture.frag"))))
+
+(bind-func gl_draw_loop 1000000
+  (let ((sizex 128)
+        (sizey sizex)
+        (density .1)
+        (bodies (list))
+        (box (SolidBox 0.5 0.6 0.7 0.1 0.0 0.0 0.0 0.0)))
+        (set! bodies (cons box bodies))
+        (let ((solver (FluidSolver sizex sizey density bodies))
+        (timestep 0.005)
+        (imagedata:float* (alloc (* sizex sizey))))
+    (lambda (time:i64 delta_t:double)
+      (addInFlow solver 0.45 0.2 0.1 0.01 1.0 0.0 3.0)
+      (updatefs solver timestep)
+      ;; draw the world
+      (glClear GL_COLOR_BUFFER_BIT)
+      (let ((texloc (glGetUniformLocation sp "tex")))
+        (glUseProgram sp)
+        (glUniform1i texloc 0))
+      ;; copy the double density data into the float buffer (since OpenGL prefers floats to doubles)
+      (doloop (j (* sizex sizey))
+        (pset! imagedata j (convert (pref (fsd solver) j))))
+      (Texture_bind_data tex imagedata sizex sizey 1 GL_CLAMP_TO_EDGE GL_NEAREST)
+      (VAO_bind_and_draw_arrays vao GL_TRIANGLE_STRIP 0 4)
+      (glfwSwapBuffers window)
+      (let ((next_time (+ time (convert (* 44100. delta_t)))))
+        (callback next_time gl_draw_loop next_time delta_t))))))
+
+(gl_draw_loop (now) (/ 1. 60.))
