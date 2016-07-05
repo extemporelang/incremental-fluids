@@ -12,8 +12,8 @@
 
 (sys:load "libs/core/adt.xtm")
 
-(bind-val CELL_SOLID i8 1)
-(bind-val CELL_FLUID i8 0)
+(bind-val CELL_SOLID i32 1)
+(bind-val CELL_FLUID i32 0)
 
 (bind-val NULL_BODY i64 0)
 (bind-val SOLID_BOX i64 1)
@@ -46,6 +46,8 @@
         (pset! x 0 (+ (* (cos phi) tmpX) (* (sin phi) tmpY)))
         (pset! y 0 (+ (* (sin phi) tmpX -1.) (* (cos phi) tmpY)))
         )))
+
+
 
 
 (bind-type SolidBody <double,double,double,double,double,double,double,double,i64>
@@ -167,13 +169,13 @@
 
 (bind-func distanceNormal
   (lambda (sb:SolidBody* nx:double* ny:double* x:double y:double)
+    (let ((xp:double* (alloc)) (yp:double* (alloc)))
+      (pset! xp 0 x)
+      (pset! yp 0 y)
       (cond
         ((= (tref sb 8) SOLID_BOX)
-          (set! x (- x (tref sb 0)))
-          (set! y (- y (tref sb 1)))
-          (let ((xp:double* (alloc)) (yp:double* (alloc)))
-            (pset! xp 0 x)
-            (pset! yp 0 y)
+          (pset! xp 0 (- (pref xp 0) (tref sb 0)))
+          (pset! yp 0 (- (pref yp 0) (tref sb 1)))
             (rotate xp yp (* -1. (tref sb 4)))
             (set! x (pref xp 0))
             (set! y (pref yp 0))
@@ -184,11 +186,7 @@
               (begin
                 (pset! ny 0 (convert (nsgn y)))
                 (pset! nx 0 0.)))
-            (pset! xp 0 x)
-            (pset! yp 0 y)
-            (rotate xp yp (tref sb 4))
-            (set! x (pref xp 0))
-            (set! y (pref yp 0))))
+            (rotate nx ny (tref sb 4)))
           ((= (tref sb 8) SOLID_SPHERE)
             (set! x (- x (tref sb 0)))
             (set! y (- y (tref sb 1)))
@@ -199,10 +197,23 @@
                   (pset! ny 0 0.))
                 (begin
                   (pset! nx 0 (/ x r))
-                  (pset! ny 0 (/ y r)))))))))
+                  (pset! ny 0 (/ y r)))))))
+                  void)))
+
+(bind-func distanceNormaltest
+  (lambda ()
+  (let ((box:SolidBody* (SolidBox 0.5 0.6 0.7 0.1 0.0 0.0 0.0 0.0))
+        (xp:double* (alloc)) (yp:double* (alloc))
+        (x 0.308594) (y 0.003906))
+      (pset! xp 0 0.)
+      (pset! yp 0 0.)
+      (distanceNormal box xp yp x y)
+      (printf "xp:%f yp:%f\n" (pref xp 0) (pref yp 0)))))
 
 
-(bind-type FluidQuantity <double*,double*,i32,i32,double,double,double,double*,double*,i8*,i8*,i8*>
+(distanceNormaltest)
+
+(bind-type FluidQuantity <double*,double*,i32,i32,double,double,double,double*,double*,i32*,i32*,i32*>
   (constructor? . #f)
   "0 - fluid data
   1  - fluid data (double-buffer)
@@ -224,9 +235,9 @@
           (dst:double* (alloc (* w h)))
           (xNormal:double* (alloc (* w h)))
           (yNormal:double* (alloc (* w h)))
-          (cell:i8* (alloc (* w h)))
-          (body:i8* (alloc (* w h)))
-          (mask:i8* (alloc (* w h))))
+          (cell:i32* (alloc (* w h)))
+          (body:i32* (alloc (* w h)))
+          (mask:i32* (alloc (* w h))))
       (tfill! fq src dst w h ox oy hx xNormal yNormal cell body mask)
       fq)))
 
@@ -237,9 +248,9 @@
           (dst:double* (halloc (* w h)))
           (xNormal:double* (alloc (* w h)))
           (yNormal:double* (alloc (* w h)))
-          (cell:i8* (halloc (* w h)))
-          (body:i8* (halloc (* w h)))
-          (mask:i8* (halloc (* w h))))
+          (cell:i32* (halloc (* w h)))
+          (body:i32* (halloc (* w h)))
+          (mask:i32* (halloc (* w h))))
       (tfill! fq src dst w h ox oy hx xNormal yNormal cell body mask)
       fq)))
 
@@ -392,31 +403,26 @@
 (bind-func advect
   "Advect grid in velocity field u, v with given timestep"
   (lambda (fq timestep u v bodies)
-    (printf "Print 1\n")
     (let ((ix:i32 0) (idx 0)
           (iy:i32 0) (idy 0)
           (x:double* (alloc))
           (y:double* (alloc)))
-      (printf "Print 2\n")
       (dotimes (iy (tref fq 3))
         (dotimes (ix (tref fq 2))
           (pset! x 0 (+ (convert ix) (tref fq 4)))
           (pset! y 0 (+ (convert iy) (tref fq 5)))
           ;; First component: Integrate in time
-          (printf "Print 4\n")
           (rungeKutta3 fq x y timestep u v)
-          (printf "Print 5\n")
           ;; Second component: Interpolate from grid
           (backProject fq x y bodies)
-          (printf "Print 6\n")
           (pset! (tref fq 1) idx (cerp:[double,FluidQuantity*,double,double]* fq (pref x 0) (pref y 0)))
           (set! idx (+ idx 1))))
-          (printf "Print 3\n")
     void)))
 
 (bind-func fillSolidFields
   (lambda (fq:FluidQuantity* bodies)
     (if (not (null? bodies))
+        (begin
         (let ((iy:i32 0) (idx:i32 0) (ix:i32 0) (body (tref fq 10)) (cell (tref fq 9))
               (normalX (tref fq 7)) (normalY (tref fq 8)) (x 0.) (y 0.))
           (dotimes (iy (tref fq 3))
@@ -432,7 +438,7 @@
                   (set! id (distance (car remaining_bodies) x y))
                   (if (< id d)
                       (begin
-                        (pset! body idx (convert i i8))
+                        (pset! body idx (convert i i32))
                         (set! d id)))
                   ;; "recurse" down the list
                   (set! i (+ i 1))
@@ -440,14 +446,14 @@
                 (if (< d 0.)
                     (pset! cell idx CELL_SOLID)
                     (pset! cell idx CELL_FLUID)))
-              (set! idx (+ 1 idx))))
           (let ((normxp:double* (alloc)) (normyp:double* (alloc)))
             (pset! normxp 0 (pref normalX idx))
             (pset! normyp 0 (pref normalY idx))
             (distanceNormal (nth bodies (convert (pref body idx))) normxp normyp x y)
             (pset! normalX idx (pref normxp 0))
             (pset! normalY idx (pref normyp 0)))
-          void)
+            (set! idx (+ 1 idx)))
+          void)))
         void)))
 
 (bind-func addInFlow
@@ -480,7 +486,6 @@
   (lambda (fq:FluidQuantity*)
     (let ((y 1) (x 1) (h (tref fq 3)) (w (tref fq 2)) (mask (tref fq 11)) (cell (tref fq 9))
       (normalX (tref fq 7)) (normalY (tref fq 8)))
-
         (while (< y (- h 1))
           (set! x 1)
           (while (< x (- w 1))
@@ -510,7 +515,7 @@
 
 (bind-func freeNeighbour
   (lambda (fq:FluidQuantity* idx:i32 border mask)
-    (let ((fqmask:i8* (tref fq 11)) (cell (tref fq 9)))
+    (let ((fqmask:i32* (tref fq 11)) (cell (tref fq 9)))
       (pset! fqmask idx (bitwise-and (pref fqmask idx) (~ mask)))
       (if (and (<> (pref cell idx) CELL_FLUID) (= (pref fqmask idx) 0))
           (begin
@@ -532,21 +537,21 @@
                    (= (pref (tref fq 11) idx) 0))
               (set! border (cons idx border)))
           (set! x (+ 1 x)))
-        (set! y (+ 1 y))
+        (set! y (+ 1 y)))
         (while (not (null? border))
           (set! idx (car border))
           (set! border (cdr border))
           (pset! src idx (extrapolateNormal fq idx))
           (cond
            ((> (pref normalX (- idx 1)) 0.)
-            (freeNeighbour fq (- idx 1) border (convert 1 i8)))
+            (freeNeighbour fq (- idx 1) border (convert 1 i32)))
            ((< (pref normalX (+ idx 1)) 0.)
-            (freeNeighbour fq (+ idx 1) border (convert 1 i8)))
+            (freeNeighbour fq (+ idx 1) border (convert 1 i32)))
            ((> (pref normalX (- idx w)) 0.)
-            (freeNeighbour fq (- idx w) border (convert 1 i8)))
+            (freeNeighbour fq (- idx w) border (convert 1 i32)))
            ((< (pref normalX (+ idx  w)) 0.)
-            (freeNeighbour fq (+ idx w) border (convert 1 i8))))
-          )))))
+            (freeNeighbour fq (+ idx w) border (convert 1 i32))))
+          ))))
 
 (bind-type FluidSolver <FluidQuantity*,FluidQuantity*,FluidQuantity*,i32,i32,double,double,double*,double*,double*,double*,double*,double*,double*,double*,List{SolidBody*}*>
   (constructor? . #f)
@@ -623,13 +628,13 @@
         (printf "-------------------------\n"))))
 
 (bind-func matrixb
-  (lambda (fs:FluidSolver* matix:double*)
-    (let ((i:i32 0) (w (tref fs 3)) (h (tref fs 4)) (a 0))
+  (lambda (matix:double*)
+    (let ((i:i64 0) (w 128) (h 128) (a:i32 0))
       (dotimes (i (* w h))
         (let ((k (pref matix i)))
-          (if (> (fabs k) 0.001)
+          (if (> k 0.)
             (begin
-            (printf "%d: %f  " i k)
+            (printf "%d: %f " i k)
             (set! a (+ 1 a))
             (if (= a 5)
             (begin
@@ -766,13 +771,13 @@
         (dotimes (x w)
         (if (= (pref (tref d 9) idx) CELL_FLUID)
           (begin
-          (if (< x (- w 1))
+            (if (and (< x (- w 1)) (= (pref (tref d 9) (+ idx 1)) CELL_FLUID))
               (begin
               (pset! aDiag idx (+ (pref aDiag idx) scale))
               (pset! aDiag (+ idx 1) (+ (pref aDiag (+ 1 idx)) scale))
               (pset! aPlusX idx (* -1. scale)))
               (pset! aPlusX idx 0.))
-          (if (< y (- h 1))
+            (if (and (< y (- h 1)) (= (pref (tref d 9) (+ idx w)) CELL_FLUID))
               (begin
               (pset! aDiag idx (+ (pref aDiag idx) scale))
               (pset! aDiag (+ idx w) (+ (pref aDiag (+ w idx)) scale))
@@ -907,25 +912,18 @@
       (set! sigma (dotProduct fs z r))
       (while (and (> maxError 1e-5) (< iter 1))
         (matrixVectorProduct fs z s)
-        (matrixb fs z)
-        (printf "sigma:%f\n" sigma)
-        (printf "dot:%f\n" (dotProduct fs z s))
         (let ((alpha (/ sigma (dotProduct fs z s))))
-          (printf "alpha:%f\n" alpha)
           (scaledAdd fs p p s alpha)
           (scaledAdd fs r r z (* -1. alpha))
           (set! maxError (infinityNorm fs r))
-          ;;(printf "maxError:%f\n" maxError)
           (if (> maxError 1e-5)
               (begin
                 (applyPreconditioner fs z r)
-                ;;  (if (= iter 1)
-                ;;(matrixb fs r))
                 (let ((sigmaNew (dotProduct fs z r)))
                   (scaledAdd fs s z s (/ sigmaNew sigma))
                   (set! sigma sigmaNew))
-                (set! iter (+ iter 1))
-                (printf "--------------------\n"))))))))
+                (set! iter (+ iter 1)))))))))
+
 
 (bind-func applyPressure
   "Applies the computed pressure to the velocity field"
@@ -1003,23 +1001,20 @@
     (buildRhs fs)
     (buildPressureMatrix fs timestep)
     (buildPreconditioner fs)
-    (project fs 10)
+    (project fs 2000)
     (applyPressure fs timestep)
     (extrapolate u)
     (extrapolate d)
     (extrapolate v)
-    (setBoundaryCondition fs))))
-    ;;(printinfodat fs)
-    ;;(printinfouat fs)
-    ;;(printinfovat fs)
-    ;;(printf "advect\n")
-    ;;(advect d timestep u v bodies)
-    ;;(advect u timestep u v bodies)
-    ;;(advect v timestep u v bodies)
-    ;;;; Make effect of advection visible, since it's not an in-place operation
-    ;;(flip (tref fs 0))
-    ;;(flip (tref fs 1))
-    ;;(flip (tref fs 2))
+    (setBoundaryCondition fs)
+    (advect d timestep u v bodies)
+    (advect u timestep u v bodies)
+    (advect v timestep u v bodies)
+    ;; Make effect of advection visible, since it's not an in-place operation
+    (flip (tref fs 0))
+    (flip (tref fs 1))
+    (flip (tref fs 2))
+    )))
 
 
 (bind-func addInFlow
