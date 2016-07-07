@@ -1,5 +1,5 @@
 (sys:load "libs/external/glfw3.xtm")
-(sys:load "incremental-fluids-master/4-solid-boundaries/fluids-4-solid-boundaries.xtm")
+(sys:load "4-solid-boundaries/fluids-4-solid-boundaries.xtm")
 
 (bind-val width i32 800)
 (bind-val height i32 600)
