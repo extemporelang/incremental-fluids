@@ -1,0 +1,501 @@
+;;; fluids-1-matrixless.xtm --
+
+;; Author: Ben Swift
+;; Keywords: extempore
+;; Required dylibs:
+
+;;; Commentary:
+
+;;
+
+;;; Code:
+
+
+(bind-func matrix
+  (lambda(matix:double*)
+    (let ((a 64))
+      (while (< a 75)
+        (printf "%d:   %f\n" a (pref matix a))
+        (set! a (+ a 1)))
+        (printf "-------------------------\n"))))
+
+(bind-func length
+  (lambda (x:double y:double)
+    (sqrt (+ (* x x) (* y y)))))
+
+(bind-func length
+  (lambda (x:double y:double)
+    (sqrt (+ (* x x) (* y y)))))
+
+(bind-func cubicPulse
+  (lambda (x:double)
+    (set! x (min (fabs x) 1.))
+    (- 1. (* x x (- 3. (* 2. x))))))
+
+(bind-type FluidQuantity <double*,double*,i32,i32,double,double,double>
+  (constructor? . #f)
+  "0 - fluid data
+1 - fluid data (double-buffer)
+2 - grid width
+3 - grid height
+4 - x offset
+5 - y offset
+6 - grid cell height")
+
+(bind-func FluidQuantity
+  (lambda (w h ox oy hx)
+    (let ((fq:FluidQuantity* (alloc))
+          (src:double* (alloc (* w h)))
+          (dst:double* (alloc (* w h))))
+      (tfill! fq src dst w h ox oy hx)
+      fq)))
+
+(bind-func FluidQuantity_h
+  (lambda (w h ox oy hx)
+    (let ((fq:FluidQuantity* (halloc))
+          (src:double* (halloc (* w h)))
+          (dst:double* (halloc (* w h))))
+      (tfill! fq src dst w h ox oy hx)
+      fq)))
+
+(bind-func FluidQuantity_free
+  "free a halloc'ed FluidQuantity created with FluidQuantity_h"
+  (lambda (fq:FluidQuantity*)
+    (free (tref fq 0))
+    (free (tref fq 1))
+    (free fq)))
+
+
+(bind-func matrixb
+  (lambda (matix:double*)
+    (let ((i:i64 0) (w 128) (h 128) (a:i32 0))
+      (dotimes (i (* w h))
+        (let ((k (pref matix i)))
+          (if (> k 0.1)
+            (begin
+            (printf "%d: %f " i k)
+            (set! a (+ 1 a))
+            (if (= a 5)
+            (begin
+            (println)
+            (set! a 0)))))))
+        (printf "\n************************\n"))))
+
+(bind-func sum
+  (lambda (fq:FluidQuantity*)
+    (let ((running_sum 0.)
+          (i 0))
+      (dotimes (i (convert (* (tref fq 2) (tref fq 3))))
+        (set! running_sum (+ running_sum (pref (tref fq 0) i))))
+      running_sum)))
+
+(bind-func lerp
+  (lambda (a:double b:double x:double)
+    (+ (* a (- 1. x)) (* b x))))
+
+(bind-func cerp
+  (lambda (a b c d x)
+    (let ((xsq (* x x)) (xcu (* x xsq))
+          (minV (min a (min b (min c (min d x)))))
+          (maxV (max a (max b (max c (max d x)))))
+          (t
+            (+ (* a (- (+ 0.0 (* 1.0 xsq)) (+ (* 0.5 x) (* 0.5 xcu))))
+               (* b (- (+ 1.0 (* 0.0 x) (* 1.5 xcu)) (* 2.5 xsq)))
+               (* c (- (+ 0.0 (* 0.5 x) (* 2.0 xsq)) (* 1.5 xcu)))
+               (* d (- (+ 0.0 (* 0.0 x) (* 0.5 xcu)) (* 0.5 xsq))))))
+               (min (max t minV) maxV))))
+
+(bind-func at
+  (lambda (fq:FluidQuantity* x y)
+    (pref (tref fq 0) (+ (* y (tref fq 2)) x))))
+
+(bind-func at
+  (lambda (fq:FluidQuantity* x y)
+    (pref-ptr (tref fq 0) (+ (* y (tref fq 2)) x))))
+
+(bind-func cerp
+  "Cubic intERPolate on grid at coordinates (x, y).
+  Coordinates will be clamped to lie in simulation domain"
+  (lambda (fq:FluidQuantity* x:double y:double)
+    (let ((ox (tref fq 4)) (oy (tref fq 5)) (w:i32 (tref fq 2)) (h:i32 (tref fq 3)))
+    (set! x (min (max (- x ox) 0.) (- (convert w) 1.001)))
+    (set! y (min (max (- y oy) 0.) (- (convert h) 1.001)))
+    (let ((ix (convert x i32))
+          (iy (convert y i32)))
+      (set! x (- x (convert ix)))
+      (set! y (- y (convert iy)))
+      (let ((x0 (max (- ix 1) 0)) (x1 ix) (x2 (+ ix 1)) (x3 (min (+ ix 2) (- w 1)))
+            (y0 (max (- iy 1) 0)) (y1 iy) (y2 (+ iy 1)) (y3 (min (+ iy 2) (- h 1))))
+          (let ((q0 (cerp:[double,double,double,double,double,double]*
+            (at:[double,FluidQuantity*,i32,i32]* fq x0 y0) (at:[double,FluidQuantity*,i32,i32]* fq x1 y0) (at:[double,FluidQuantity*,i32,i32]* fq x2 y0) (at:[double,FluidQuantity*,i32,i32]* fq x3 y0) x))
+                (q1 (cerp:[double,double,double,double,double,double]*
+            (at:[double,FluidQuantity*,i32,i32]* fq x0 y1) (at:[double,FluidQuantity*,i32,i32]* fq x1 y1) (at:[double,FluidQuantity*,i32,i32]* fq x2 y1) (at:[double,FluidQuantity*,i32,i32]* fq x3 y1) x))
+                (q2 (cerp:[double,double,double,double,double,double]*
+            (at:[double,FluidQuantity*,i32,i32]* fq x0 y2) (at:[double,FluidQuantity*,i32,i32]* fq x1 y2) (at:[double,FluidQuantity*,i32,i32]* fq x2 y2) (at:[double,FluidQuantity*,i32,i32]* fq x3 y2) x))
+                (q3 (cerp:[double,double,double,double,double,double]*
+            (at:[double,FluidQuantity*,i32,i32]* fq x0 y3) (at:[double,FluidQuantity*,i32,i32]* fq x1 y3) (at:[double,FluidQuantity*,i32,i32]* fq x2 y3) (at:[double,FluidQuantity*,i32,i32]* fq x3 y3) x)))
+            (let ((k (cerp:[double,double,double,double,double,double]* q0 q1 q2 q3 y)))
+               (cerp:[double,double,double,double,double,double]* q0 q1 q2 q3 y))))))))
+
+
+(bind-func lerp
+  "Linear intERPolate on grid at coordinates (x, y).
+Coordinates will be clamped to lie in simulation domain"
+  (lambda (fq:FluidQuantity* x:double y:double)
+    (let ((ox (tref fq 4)) (oy (tref fq 5)) (w:i32 (tref fq 2)) (h:i32 (tref fq 3)))
+    (set! x (min (max (- x ox) 0.) (- (convert w) 1.001)))
+    (set! y (min (max (- y oy) 0.) (- (convert h) 1.001)))
+    (let ((ix (convert x i32))
+          (iy (convert y i32)))
+      (set! x (- x (convert ix)))
+      (set! y (- y (convert iy)))
+      (let ((x00 (at fq (+ ix 0) (+ iy 0)))
+            (x01 (at fq (+ ix 0) (+ iy 1)))
+            (x10 (at fq (+ ix 1) (+ iy 0)))
+            (x11 (at fq (+ ix 1) (+ iy 1))))
+        (lerp:[double,double,double,double]*
+         (lerp:[double,double,double,double]* x00 x10 x)
+         (lerp:[double,double,double,double]* x01 x11 x)
+         y))))))
+
+
+(bind-func rungeKutta3
+ (lambda (fq:FluidQuantity* xp:double* yp:double* timestep u:FluidQuantity* v:FluidQuantity*)
+   (let ((hx (tref fq 6)) (x (pref xp 0)) (y (pref yp 0))
+     (firstU (/ (lerp u x y) hx))
+     (firstV (/ (lerp v x y) hx))
+       (midX (- x (* 0.5 timestep firstU)))
+       (midY (- y (* 0.5 timestep firstV)))
+       (midU (/ (lerp u midX midY) hx))
+       (midV (/ (lerp v midX midY) hx))
+           (lastX (- x (* 0.75 timestep midU)))
+           (lastY (- y (* 0.75 timestep midV)))
+           (lastU (lerp u lastX lastY))
+           (lastV (lerp v lastX lastY)))
+                 (pset! xp 0 (- x (* timestep (+ (* (/ 2. 9.) firstU) (* (/ 3. 9.) midU) (* (/ 4. 9.) lastU)))))
+                 (pset! yp 0 (- y (* timestep (+ (* (/ 2. 9.) firstV) (* (/ 3. 9.) midV) (* (/ 4. 9.) lastV)))))
+          void)))
+
+
+(bind-func euler
+  (lambda (fq:FluidQuantity* x:double* y:double* timestep u:FluidQuantity* v:FluidQuantity*)
+    (let ((uVel (/ (lerp u (pref x 0) (pref y 0)) (tref fq 6)))
+          (vVel (/ (lerp v (pref x 0) (pref y 0)) (tref fq 6))))
+      (pset! x 0 (- (pref x 0) (* uVel timestep)))
+      (pset! y 0 (- (pref y 0) (* vVel timestep))))
+    void))
+
+(bind-func flip
+  (lambda (fq:FluidQuantity*)
+    (let ((tmp:double* null))
+      (set! tmp (tref fq 0))
+      (tset! fq 0 (tref fq 1))
+      (tset! fq 1 tmp))))
+
+(bind-func src
+  (lambda (fq:FluidQuantity*)
+    (tref fq 0)))
+
+;; (bind-func dst
+;;   (lambda (fq:FluidQuantity*)
+;;     (tref fq 1)))
+(bind-func advect
+  "Advect grid in velocity field u, v with given timestep"
+  (lambda (fq timestep u v)
+    (let ((ix:i32 0) (idx 0)
+          (iy:i32 0) (idy 0)
+          (x:double* (alloc))
+          (y:double* (alloc)))
+      (dotimes (iy (tref fq 3))
+        (dotimes (ix (tref fq 2))
+          (pset! x 0 (+ (convert ix) (tref fq 4)))
+          (pset! y 0 (+ (convert iy) (tref fq 5)))
+          ;; First component: Integrate in time
+          (rungeKutta3 fq x y timestep u v)
+          ;; Second component: Interpolate from grid
+          (pset! (tref fq 1) idx (cerp:[double,FluidQuantity*,double,double]* fq (pref x 0) (pref y 0)))
+          (set! idx (+ idx 1))))
+    void)))
+
+(bind-func addInFlow
+  "Sets fluid quantity inside the given rect to value `v'"
+  (lambda (fq:FluidQuantity* x0 y0 x1 y1 v)
+    (let ((hx (tref fq 6))
+          (ix0 (convert (- (/ x0 hx) (tref fq 4)) i32))
+          (iy0 (convert (- (/ y0 hx) (tref fq 5)) i32))
+          (ix1 (convert (- (/ x1 hx) (tref fq 4)) i32))
+          (iy1 (convert (- (/ y1 hx) (tref fq 5)) i32))
+           (y (max iy0 0)))
+      ;; Sets fluid quantity inside the given rect to value `v'
+      (while (< y (min iy1 (convert (tref fq 3))))
+      (let ((x (max ix0 0)))
+        (while (< x (min ix1 (convert (tref fq 3))))
+          (let ((l (length (/ (- (* 2. (+ (convert x) .5) hx) (+ x0 x1)) (- x1 x0))
+                           (/ (- (* 2. (+ (convert y) .5) hx) (+ y0 y1)) (- y1 y0))))
+                (vi (* v (cubicPulse l))))
+          (if (< (fabs (pref (tref fq 0) (+ x (* y (tref fq 2)))))
+                 (fabs vi))
+                 (begin
+              (pset! (tref fq 0)
+                     (+ x (* y (tref fq 2)))
+                     vi))))
+          (set! x (+ x 1)))
+        (set! y (+ y 1))))
+      void)))
+
+(bind-type FluidSolver <FluidQuantity*,FluidQuantity*,FluidQuantity*,i32,i32,double,double,double*,double*>
+  (constructor? . #f)
+  "0 - density grid
+1 - u
+2 - v
+3 - width
+4 - height
+5 - grid cell height
+6 - density
+7 - right-hand side of pressure solve
+8 - pressure solution")
+
+(bind-func FluidSolver
+  (lambda (w h density)
+    (let ((hx (/ 1. (convert (min w h))))
+          (fs:FluidSolver* (alloc))
+          (d (FluidQuantity w h .5 .5 hx))
+          (u (FluidQuantity (+ w 1) h .0 .5 hx))
+          (v (FluidQuantity w (+ h 1) .5 .0 hx))
+          (r:double* (alloc (* w h)))
+          (p:double* (alloc (* w h))))
+      (tfill! fs d u v w h hx density r p)
+      fs)))
+
+(bind-func FluidSolver_h
+  (lambda (w h density)
+    (let ((hx (/ 1. (convert (min w h))))
+          (fs:FluidSolver* (halloc))
+          (d (FluidQuantity_h w h .5 .5 hx))
+          (u (FluidQuantity_h (+ w 1) h .5 .5 hx))
+          (v (FluidQuantity_h w (+ h 1) .5 .5 hx))
+          (r:double* (halloc (* w h)))
+          (p:double* (halloc (* w h))))
+      (tfill! fs d u v w h hx density r p)
+      fs)))
+
+(bind-func FluidSolver_free
+  "free a halloc'ed FluidSolver created with FluidSolver_h"
+  (lambda (fs:FluidSolver*)
+    (FluidQuantity_free (tref fs 0))
+    (FluidQuantity_free (tref fs 1))
+    (FluidQuantity_free (tref fs 1))
+    (free (tref fs 7))
+    (free (tref fs 8))
+    (free fs)))
+
+
+(bind-func printinfouat
+    (lambda (fs:FluidSolver*)
+      (let ((x 0) (y 0) (d (tref fs 1)))
+        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
+          (printf "u: \n")
+          (while (< y h)
+            (set! x 0)
+            (while (< x w)
+            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
+            (if (< 0.05 k)
+            (begin
+            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
+            (printf ":  %f |" k)
+            (set! a (+ a 1))
+            (if (= a 3)
+            (begin
+            (println )
+            (set! a 0)))))
+              (set! x (+ x 1))))
+            (set! y (+ y 1)))
+              (printf "----------------------\n")
+              ))))
+
+(bind-func printinfovat
+    (lambda (fs:FluidSolver*)
+      (let ((x 0) (y 0) (d (tref fs 2)))
+        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
+          (printf "v: \n")
+          (while (< y h)
+            (set! x 0)
+            (while (< x w)
+            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
+            (if (< 0.05 k)
+            (begin
+            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
+            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
+            (set! a (+ a 1))
+            (if (= a 3)
+            (begin
+            (println )
+            (set! a 0)))))
+              (set! x (+ x 1))))
+            (set! y (+ y 1)))
+              (printf "----------------------\n")
+              ))))
+
+(bind-func printinfodat
+    (lambda (fs:FluidSolver*)
+      (let ((x 0) (y 0) (d (tref fs 0)))
+        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
+          (printf "d: \n")
+          (while (< y h)
+            (set! x 0)
+            (while (< x w)
+            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
+            (if (< 0.05 k)
+            (begin
+            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
+            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
+            (set! a (+ a 1))
+            (if (= a 3)
+            (begin
+            (println )
+            (set! a 0)))))
+              (set! x (+ x 1))))
+            (set! y (+ y 1)))
+              (printf "----------------------\n")
+              ))))
+
+;; accessor functions for pointers to the raw data
+
+(bind-func fsd
+  (lambda (fs:FluidSolver*)
+    (tref (tref fs 0) 0)))
+
+(bind-func fsu
+  (lambda (fs:FluidSolver*)
+    (tref (tref fs 1) 0)))
+
+(bind-func fsv
+  (lambda (fs:FluidSolver*)
+    (tref (tref fs 2) 0)))
+
+;; TODO. _src/_dst don' seem to be gettin set. should happen in either
+;; addInFlows or in applyPressure - need to check if that's happening
+
+(bind-func buildRhs
+  "Builds the pressure right hand side as the negative divergence"
+  (lambda (fs:FluidSolver*)
+    (let ((scale (/ 1. (tref fs 5)))
+          (x 0) (y 0) (idx 0)
+          (u (tref fs 1))
+          (v (tref fs 2)))
+      (dotimes (y (tref fs 4))
+        (dotimes (x (tref fs 3))
+          (pset! (tref fs 7) idx (* -1. scale
+                                    (- (+ (at u (+ x 1) y)
+                                          (at v x (+ y 1)))
+                                       (+ (at u x y)
+                                          (at v x y)))))
+          (set! idx (+ idx 1)))))))
+
+(bind-func project
+  "Performs the pressure solve using Gauss-Seidel.
+The solver will run as long as it takes to get the relative error below
+a threshold, but will never exceed `limit' iterations"
+  (lambda (fs:FluidSolver* limit timestep)
+    (let ((scale (/ timestep (* (tref fs 6) (tref fs 5) (tref fs 5))))
+          (maxDelta 1.)
+          (iter 0)
+          (x 0) (y 0) (idx 0)
+          (w (tref fs 3)) (h (tref fs 4))
+          (p (tref fs 8))
+          (diag 0.) (offDiag 0.) (newP 0.))
+      (while (and (< iter limit) (> maxDelta 1e-5))
+        (set! maxDelta 0.)
+        (dotimes (y h)
+          (dotimes (x w)
+            (set! idx (+ x (* y w)))
+            (set! diag 0.) (set! offDiag 0.)
+            ;; Here we build the matrix implicitly as the five-point
+            ;; stencil. Grid borders are assumed to be solid, i.e.
+            ;; there is no fluid outside the simulation domain.
+            (if (> x 0)
+                (begin (set! diag (+ diag scale))
+                       (set! offDiag (- offDiag (* scale (pref p (- idx 1)))))))
+            (if (> y 0)
+                (begin (set! diag (+ diag scale))
+                       (set! offDiag (- offDiag (* scale (pref p (- idx w)))))))
+            (if (< x (- w 1))
+                (begin (set! diag (+ diag scale))
+                       (set! offDiag (- offDiag (* scale (pref p (+ idx 1)))))))
+            (if (< y (- h 1))
+                (begin (set! diag (+ diag scale))
+                       (set! offDiag (- offDiag (* scale (pref p (+ idx w)))))))
+            (set! newP (/ (- (pref (tref fs 7) idx) offDiag) diag))
+            (set! maxDelta (max maxDelta (fabs (- (pref p idx) newP))))
+            (pset! p idx newP)))
+            (set! iter (+ iter 1)))
+        (printf "Exiting solver after %d iterations, maximum change is %f\n" iter maxDelta))))
+
+(bind-func applyPressure
+  "Applies the computed pressure to the velocity field"
+  (lambda (fs:FluidSolver* timestep)
+    (let ((scale (/ timestep (* (tref fs 6) (tref fs 5))))
+          (x 0) (y 0) (idx 0)
+          (w (tref fs 3)) (h (tref fs 4))
+          (u (tref fs 1))
+          (v (tref fs 2))
+          (p (tref fs 8)))
+      (dotimes (y h)
+        (dotimes (x w)
+          ;; this is a bit messy - we could get around it by just
+          ;; using different names for the ref/val `at' function
+          ;; instead of using polymorphism
+          (pset! (at:[double*,FluidQuantity*,i32,i32]* u x y) 0 (- (at u x y) (* scale (pref p idx))))
+          (pset! (at:[double*,FluidQuantity*,i32,i32]* u (+ x 1) y) 0 (+ (at u (+ x 1) y) (* scale (pref p idx))))
+          (pset! (at:[double*,FluidQuantity*,i32,i32]* v x y) 0 (- (at v x y) (* scale (pref p idx))))
+          (pset! (at:[double*,FluidQuantity*,i32,i32]* v x (+ y 1)) 0 (+ (at v x (+ y 1)) (* scale (pref p idx))))
+          (set! idx (+ idx 1))))
+      (dotimes (y h)
+        (pset! (at:[double*,FluidQuantity*,i32,i32]* u 0 y) 0 0.)
+        (pset! (at:[double*,FluidQuantity*,i32,i32]* u w y) 0 0.))
+      (dotimes (x w)
+        (pset! (at:[double*,FluidQuantity*,i32,i32]* v x 0) 0 0.)
+        (pset! (at:[double*,FluidQuantity*,i32,i32]* v x h) 0 0.)))))
+
+(bind-func update
+  (lambda (fs:FluidSolver* timestep)
+  (let ((i:i32 0) (h (tref fs 4)) (w (tref fs 3)) (a:i64 0) (x:i32 0) (y:i32 0))
+    (buildRhs fs)
+    (project fs 600 timestep)
+    (applyPressure fs timestep)
+    (advect (tref fs 0) timestep (tref fs 1) (tref fs 2))
+    (advect (tref fs 1) timestep (tref fs 1) (tref fs 2))
+    (advect (tref fs 2) timestep (tref fs 1) (tref fs 2))
+    ;; Make effect of advection visible, since it's not an in-place operation
+    (flip (tref fs 0))
+    (flip (tref fs 1))
+    (flip (tref fs 2))
+    )))
+
+(bind-func addInFlow
+  "Set density and x/y velocity in given rectangle to d/u/v, respectively"
+  (lambda (fs:FluidSolver* x y w h d u v)
+    (addInFlow:[void,FluidQuantity*,double,double,double,double,double]*
+     (tref fs 0) x y (+ x w) (+ y h) d)
+    (addInFlow:[void,FluidQuantity*,double,double,double,double,double]*
+     (tref fs 1) x y (+ x w) (+ y h) u)
+    (addInFlow:[void,FluidQuantity*,double,double,double,double,double]*
+     (tref fs 2) x y (+ x w) (+ y h) v)))
+
+(bind-func maxTimestep
+  "Returns the maximum allowed timestep. Note that the actual timestep
+taken should usually be much below this to ensure accurate
+simulation - just never above."
+  (lambda (fs:FluidSolver*)
+    (let ((maxVelocity 0.)
+          (x 0) (y 0)
+          (u 0.) (v 0.))
+      (dotimes (y (tref fs 4))
+        (dotimes (x (tref fs 3))
+          (set! u (lerp (tref fs 1) (+ (convert x) .5) (+ (convert y) .5)))
+          (set! u (lerp (tref fs 2) (+ (convert x) .5) (+ (convert y) .5)))
+          (set! maxVelocity (max maxVelocity (sqrt (+ (* u u) (* v v)))))))
+      ;; Fluid should not flow more than two grid cells per iteration,
+      ;; so we clamp to sensible maximum value in case of very small
+      ;; velocities
+      (min (/ (* 2. (tref fs 5)) maxVelocity) 1.0))))
