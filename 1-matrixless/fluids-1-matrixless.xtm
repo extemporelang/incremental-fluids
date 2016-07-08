@@ -10,6 +10,16 @@
 
 ;;; Code:
 
+
+(bind-func matrix
+  (lambda(matix:double*)
+    (let ((a 64))
+      (while (< a 75)
+        (printf "%d:   %f\n" a (pref matix a))
+        (set! a (+ a 1)))
+        (printf "-------------------------\n"))))
+
+
 (bind-type FluidQuantity <double*,double*,i32,i32,double,double,double>
   (constructor? . #f)
   "0 - fluid data
@@ -42,6 +52,22 @@
     (free (tref fq 0))
     (free (tref fq 1))
     (free fq)))
+
+
+(bind-func matrixb
+  (lambda (matix:double*)
+    (let ((i:i64 0) (w 128) (h 128) (a:i32 0))
+      (dotimes (i (* w h))
+        (let ((k (pref matix i)))
+          (if (> k 0.1)
+            (begin
+            (printf "%d: %f " i k)
+            (set! a (+ 1 a))
+            (if (= a 5)
+            (begin
+            (println)
+            (set! a 0)))))))
+        (printf "\n************************\n"))))
 
 (bind-func sum
   (lambda (fq:FluidQuantity*)
@@ -77,11 +103,7 @@ Coordinates will be clamped to lie in simulation domain"
       (let ((x00 (at fq (+ ix 0) (+ iy 0)))
             (x01 (at fq (+ ix 0) (+ iy 1)))
             (x10 (at fq (+ ix 1) (+ iy 0)))
-            (x11 (at fq (+ ix 1) (+ iy 1)))
-            (k (lerp:[double,double,double,double]*
-             (lerp:[double,double,double,double]* x00 x10 x)
-             (lerp:[double,double,double,double]* x01 x11 x)
-             y)))
+            (x11 (at fq (+ ix 1) (+ iy 1))))
         (lerp:[double,double,double,double]*
          (lerp:[double,double,double,double]* x00 x10 x)
          (lerp:[double,double,double,double]* x01 x11 x)
@@ -166,8 +188,8 @@ Coordinates will be clamped to lie in simulation domain"
     (let ((hx (/ 1. (convert (min w h))))
           (fs:FluidSolver* (alloc))
           (d (FluidQuantity w h .5 .5 hx))
-          (u (FluidQuantity (+ w 1) h .5 .5 hx))
-          (v (FluidQuantity w (+ h 1) .5 .5 hx))
+          (u (FluidQuantity (+ w 1) h .0 .5 hx))
+          (v (FluidQuantity w (+ h 1) .5 .0 hx))
           (r:double* (alloc (* w h)))
           (p:double* (alloc (* w h))))
       (tfill! fs d u v w h hx density r p)
@@ -194,6 +216,77 @@ Coordinates will be clamped to lie in simulation domain"
     (free (tref fs 7))
     (free (tref fs 8))
     (free fs)))
+
+
+
+(bind-func printinfouat
+    (lambda (fs:FluidSolver*)
+      (let ((x 0) (y 0) (d (tref fs 1)))
+        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
+          (printf "u: \n")
+          (while (< y h)
+            (set! x 0)
+            (while (< x w)
+            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
+            (if (< 0.05 k)
+            (begin
+            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
+            (printf ":  %f |" k)
+            (set! a (+ a 1))
+            (if (= a 3)
+            (begin
+            (println )
+            (set! a 0)))))
+              (set! x (+ x 1))))
+            (set! y (+ y 1)))
+              (printf "----------------------\n")
+              ))))
+
+(bind-func printinfovat
+    (lambda (fs:FluidSolver*)
+      (let ((x 0) (y 0) (d (tref fs 2)))
+        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
+          (printf "v: \n")
+          (while (< y h)
+            (set! x 0)
+            (while (< x w)
+            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
+            (if (< 0.05 k)
+            (begin
+            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
+            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
+            (set! a (+ a 1))
+            (if (= a 3)
+            (begin
+            (println )
+            (set! a 0)))))
+              (set! x (+ x 1))))
+            (set! y (+ y 1)))
+              (printf "----------------------\n")
+              ))))
+
+(bind-func printinfodat
+    (lambda (fs:FluidSolver*)
+      (let ((x 0) (y 0) (d (tref fs 0)))
+        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
+          (printf "d: \n")
+          (while (< y h)
+            (set! x 0)
+            (while (< x w)
+            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
+            (if (< 0.05 k)
+            (begin
+            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
+            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
+            (set! a (+ a 1))
+            (if (= a 3)
+            (begin
+            (println )
+            (set! a 0)))))
+              (set! x (+ x 1))))
+            (set! y (+ y 1)))
+              (printf "----------------------\n")
+              ))))
 
 ;; accessor functions for pointers to the raw data
 
@@ -263,7 +356,9 @@ a threshold, but will never exceed `limit' iterations"
                        (set! offDiag (- offDiag (* scale (pref p (+ idx w)))))))
             (set! newP (/ (- (pref (tref fs 7) idx) offDiag) diag))
             (set! maxDelta (max maxDelta (fabs (- (pref p idx) newP))))
-            (pset! p idx newP)))))))
+            (pset! p idx newP)))
+            (set! iter (+ iter 1)))
+        (printf "Exiting solver after %d iterations, maximum change is %f\n" iter maxDelta))))
 
 (bind-func applyPressure
   "Applies the computed pressure to the velocity field"
@@ -303,7 +398,8 @@ a threshold, but will never exceed `limit' iterations"
     ;; Make effect of advection visible, since it's not an in-place operation
     (flip (tref fs 0))
     (flip (tref fs 1))
-    (flip (tref fs 2)))))
+    (flip (tref fs 2))
+    )))
 
 (bind-func addInFlow
   "Set density and x/y velocity in given rectangle to d/u/v, respectively"
@@ -332,21 +428,3 @@ simulation - just never above."
       ;; so we clamp to sensible maximum value in case of very small
       ;; velocities
       (min (/ (* 2. (tref fs 5)) maxVelocity) 1.0))))
-
-
-(bind-func printinfo
-    (lambda (fs:FluidSolver*)
-      (let ((i 0) (d (tref fs 0)))
-        (let ((src (tref d 0)) (times:i64 (convert (* (tref fs 3) (tref fs 4)))) (a 0))
-          (while (< i times)
-            (let ((k (pref src i)))
-            (if (< 0.45 k)
-            (begin
-            (printf "%d" i)
-            (printf ":  %f " k)
-            (set! a (+ a 1))
-            (if (= a 5)
-            (begin
-            (println )
-            (set! a 0)))  ))
-              (set! i (+ i 1))))))))
