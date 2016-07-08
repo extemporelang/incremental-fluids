@@ -1,5 +1,5 @@
 (sys:load "libs/external/glfw3.xtm")
-(sys:load "/incremental-fluids/2-better-advection/fluids-2-better-advection.xtm")
+(sys:load "2-better-advection/fluids-2-better-advection.xtm")
 
 (bind-val width i32 800)
 (bind-val height i32 600)
