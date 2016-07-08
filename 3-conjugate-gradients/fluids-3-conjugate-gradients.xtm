@@ -11,9 +11,6 @@
 ;;; Code:
 
 
-
-
-
 (bind-func length
   (lambda (x:double y:double)
     (sqrt (+ (* x x) (* y y)))))
@@ -151,7 +148,7 @@ Coordinates will be clamped to lie in simulation domain"
             (lastV (lerp v lastX lastY)))
                   (pset! xp 0 (- x (* timestep (+ (* (/ 2. 9.) firstU) (* (/ 3. 9.) midU) (* (/ 4. 9.) lastU)))))
                   (pset! yp 0 (- y (* timestep (+ (* (/ 2. 9.) firstV) (* (/ 3. 9.) midV) (* (/ 4. 9.) lastV)))))
-void)))
+                  void)))
 
 (bind-func euler
   (lambda (fq:FluidQuantity* x:double* y:double* timestep u:FluidQuantity* v:FluidQuantity*)
@@ -193,7 +190,6 @@ void)))
           (pset! (tref fq 1) idx (cerp:[double,FluidQuantity*,double,double]* fq (pref x 0) (pref y 0)))
           (set! idx (+ idx 1))))
     void)))
-
 
 (bind-func addInFlow
   "Sets fluid quantity inside the given rect to value `v'"
@@ -437,7 +433,6 @@ void)))
           (set! idx (+ idx 1))
           )))))
 
-
 (bind-func buildPreconditioner
   (lambda (fs:FluidSolver*)
     (let ((tau 0.97) (sigma 0.25)
@@ -467,9 +462,8 @@ void)))
   (lambda (fs:FluidSolver* dst:double* a:double*)
     (let ((y 0) (x 0) (idx 0) (w (tref fs 3)) (h (tref fs 4))
     (aDiag (tref fs 12)) (aPlusX (tref fs 13)) (aPlusY (tref fs 14)) (precon (tref fs 11)))
-      (while (< y h)
-        (set! x 0)
-        (while (< x w)
+      (dotimes (y h)
+       (dotimes (x w)
           (let ((t (pref a idx)))
             (if (> x 0)
               (set! t (- t (* (pref aPlusX (- idx 1)) (pref precon (- idx 1)) (pref dst (- idx 1))))))
@@ -478,9 +472,7 @@ void)))
               (set! t (- t (* (pref aPlusY (- idx w)) (pref precon (- idx w)) (pref dst (- idx w))))))
 
             (pset! dst idx (* t (pref precon idx)))
-            (set! idx (+ idx 1))
-            (set! x ( + x 1))))
-            (set! y (+ y 1)))
+            (set! idx (+ idx 1)))))
 
       (set! y (- h 1))
       (set! idx (- (* w h) 1))
@@ -500,7 +492,6 @@ void)))
         (set! x (- x 1))
         (set! idx (- idx 1))))
         (set! y (- y 1))))))
-
 
 (bind-func dotProduct
   (lambda (fs:FluidSolver* a:double* b:double*)
@@ -541,12 +532,11 @@ void)))
         (set! maxA (max maxA (fabs (pref a i)))))
         maxA)))
 
-
 (bind-func project
   "Performs the pressure solve using Gauss-Seidel.
-The solver will run as long as it takes to get the relative error below
-a threshold, but will never exceed `limit' iterations"
-  (lambda (fs:FluidSolver* limit)
+  The solver will run as long as it takes to get the relative error below
+  a threshold, but will never exceed `limit' iterations"
+  (lambda (fs:FluidSolver* limit:i32)
     (let ((maxDelta:double 1.)
           (iter:i32 0) (i:i32 0)
           (x:i32 0) (y:i32 0) (idx:i32 0)
@@ -554,38 +544,27 @@ a threshold, but will never exceed `limit' iterations"
           (p (tref fs 8))
           (z (tref fs 9))
           (r (tref fs 7))
-          (s (tref fs 10)) (done 0)
+          (s (tref fs 10))
           (maxError (infinityNorm fs r)) (sigma 0.))
       (applyPreconditioner fs z r)
       (dotimes (i (* w h))
         (pset! s i (pref z i))
         (pset! p i 0.))
-      (if (< maxError 1e-5)
-          (begin
-            (set! done 1)))
       (set! sigma (dotProduct fs z r))
-
-      (dotimes (iter limit)
-
-      (if (= done 0)
-      (begin
+      (while (and (> maxError 1e-5) (< iter limit))
         (matrixVectorProduct fs z s)
         (let ((alpha (/ sigma (dotProduct fs z s))))
           (scaledAdd fs p p s alpha)
           (scaledAdd fs r r z (* -1. alpha))
-          (set! maxError (infinityNorm fs r)))))
-
-        (if (< maxError 1e-5)
-        (begin
-          (set! done 1)
-          void))
-
-        (if (= done 0)
-          (begin
-          (applyPreconditioner fs z r)
-          (let ((sigmaNew (dotProduct fs z r)))
-            (scaledAdd fs s z s (/ sigmaNew sigma))
-            (set! sigma sigmaNew))))))))
+          (set! maxError (infinityNorm fs r))
+          (if (> maxError 1e-5)
+              (begin
+                (applyPreconditioner fs z r)
+                (let ((sigmaNew (dotProduct fs z r)))
+                  (scaledAdd fs s z s (/ sigmaNew sigma))
+                  (set! sigma sigmaNew))
+                (set! iter (+ iter 1))))))
+          (printf "Exiting solver after %d iterations, maximum error is %f\n" iter maxError))))
 
 (bind-func applyPressure
   "Applies the computed pressure to the velocity field"
