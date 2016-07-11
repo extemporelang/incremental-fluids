@@ -901,7 +901,7 @@
               (pset! aPlusX idx (* -1. factor))))
             (if (and (< y (- h 1)) (= (pref (tref d 9) (+ idx w)) CELL_FLUID))
               (begin
-              (set! factor (* scale (volume u (+ x 1) y)))
+              (set! factor (* scale (volume v x (+ 1 y))))
               (pset! aDiag idx (+ (pref aDiag idx) factor))
               (pset! aDiag (+ idx w) (+ (pref aDiag (+ w idx)) factor))
               (pset! aPlusY idx (* -1. factor))))))
