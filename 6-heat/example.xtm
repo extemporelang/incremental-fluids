@@ -1,5 +1,5 @@
 (sys:load "libs/external/glfw3.xtm")
-(sys:load "incremental-fluids/6-heat/fluids-6-heat.xtm")
+(sys:load "6-heat/fluids-6-heat.xtm")
 
 (bind-val width i32 800)
 (bind-val height i32 600)
