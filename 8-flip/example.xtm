@@ -1,5 +1,5 @@
 (sys:load "libs/external/glfw3.xtm")
-(sys:load "incremental-fluids/7-variable-density/fluids-7-variable-density.xtm")
+(sys:load "incremental-fluids/8-flip/fluids-8-flip.xtm")
 
 (bind-val width i32 800)
 (bind-val height i32 600)
@@ -50,7 +50,6 @@
         (timestep 0.005) (iter 0) (u (tref solver 1))
         (imagedata:float* (alloc (* sizex sizey))))
     (lambda (time:i64 delta_t:double)
-      (addInFlow solver 0.45 0.2 0.1 0.05 1.0 (tref solver 20) 0.0 0.0)
       (updatefs solver timestep)
       ;; draw the world
       (glClear GL_COLOR_BUFFER_BIT)
@@ -60,7 +59,7 @@
       ;; copy the double density data into the float buffer (since OpenGL prefers floats to doubles)
       (doloop (j (* sizex sizey))
         (pset! imagedata j (convert (pref (fsd solver) j)))
-        (if (= 1. (convert (pref (tref (tref solver 0) 9) j)))
+        (if (= CELL_SOLID (convert (pref (tref (tref solver 0) 9) j)))
             (pset! imagedata j 1.)))
       (Texture_bind_data tex imagedata sizex sizey 1 GL_CLAMP_TO_EDGE GL_NEAREST)
       (VAO_bind_and_draw_arrays vao GL_TRIANGLE_STRIP 0 4)
