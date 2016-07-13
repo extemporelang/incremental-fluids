@@ -1,5 +1,5 @@
 (sys:load "libs/external/glfw3.xtm")
-(sys:load "incremental-fluids/8-flip/fluids-8-flip.xtm")
+(sys:load "8-flip/fluids-8-flip.xtm")
 
 (bind-val width i32 800)
 (bind-val height i32 600)
