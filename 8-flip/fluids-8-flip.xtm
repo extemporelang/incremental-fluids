@@ -1007,15 +1007,14 @@
   (lambda (qs:ParticleQuantities* alpha:double)
     (let ((t 0) (i:i32 0) (quantities (tref qs 14)) (properties (tref qs 13)))
       (dotimes (t (length quantities))
-
         (fromParticles (nth quantities t) (tref qs 9) (tref qs 3) (tref qs 11) (tref qs 12) (nth properties t))
         (extrapolate (nth quantities t)))
-
 
         (countparticles qs)
         (pruneParticles qs)
         (seedParticles qs)
 
+        (printf "Particle Count: %d\n" (tref qs 3))
         )))
 
 (bind-func advect
@@ -1023,7 +1022,11 @@
     (let ((i:i32 0) (posX:double* (tref qs 11)) (posY:double* (tref qs 12)))
       (dotimes (i (tref qs 3))
         (rungeKutta3 qs (pref-ptr posX i) (pref-ptr posY i) timestep u v)
-        (backProject qs (pref-ptr posX i) (pref-ptr posY i))))))
+        (backProject qs (pref-ptr posX i) (pref-ptr posY i))
+
+        (pset! posX i (max (min (pref posX i) (- (convert (tref qs 5) double) 0.001)) 0.0))
+        (pset! posY i (max (min (pref posY i) (- (convert (tref qs 6) double) 0.001)) 0.0))
+        ))))
 
 (bind-type FluidSolver <FluidQuantity*,FluidQuantity*,FluidQuantity*,i32,i32,double,double,double*,double*,double*,double*,double*,double*,double*,double*,List{SolidBody*}*,FluidQuantity*,double,double,double,double,double*,double*,ParticleQuantities*,double}*>
   (constructor? . #f)
