@@ -1,5 +1,5 @@
 (sys:load "libs/external/glfw3.xtm")
-(sys:load "incremental-fluids/7-variable-density/fluids-7-variable-density.xtm")
+(sys:load "7-variable-density/fluids-7-variable-density.xtm")
 
 (bind-val width i32 800)
 (bind-val height i32 600)
