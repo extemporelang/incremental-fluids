@@ -1,5 +1,5 @@
 (sys:load "libs/external/glfw3.xtm")
-(sys:load "1-matrixless/fluids-1-matrixless.xtm")
+(sys:load "3-conjugate-gradients/fluids-3-conjugate-gradients.xtm")
 
 (bind-val width i32 800)
 (bind-val height i32 600)
