@@ -1,5 +1,5 @@
 (sys:load "libs/external/glfw3.xtm")
-(sys:load "incremental-fluids/6-heat/fluids-6-heat.xtm")
+(sys:load "6-heat/fluids-6-heat.xtm")
 
 (bind-val width i32 800)
 (bind-val height i32 600)
@@ -44,13 +44,13 @@
 (bind-func gl_draw_loop
   (let ((sizex 128)
         (sizey sizex) (renderHear #t)
-        (density .1) (densityAir 0.1) (densitySoot 0.1) (diffusion 0.01)
-        (bodies (list (SolidBox 0.5 0.6 0.7 0.1 (* PI .25) 0.0 0.0 0.0)))
-        (solver (FluidSolver sizex sizey density bodies densityAir densitySoot diffusion))
+        (densityAir 0.1) (densitySoot 0.1) (diffusion 0.01)
+        (bodies (list (SolidBox 0.3 0.6 0.1 0.5 (* -1. PI 0.05) 0.0 0.0 0.0)))
+        (solver (FluidSolver sizex sizey bodies densityAir densitySoot diffusion))
         (timestep 0.005) (iter 0) (u (tref solver 1))
         (imagedata:float* (alloc (* sizex sizey))))
     (lambda (time:i64 delta_t:double)
-      (addInFlow solver 0.35 0.9 0.1 0.05 1.0 (tref fs 20) 0.0 0.0)
+      (addInFlow solver 0.35 0.9 0.1 0.05 1.0 (+ (tref solver 20) 300.) 0.0 0.0)
       (updatefs solver timestep)
       ;; draw the world
       (glClear GL_COLOR_BUFFER_BIT)
