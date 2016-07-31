@@ -640,9 +640,7 @@
           (set! idx (+ x (* w y)))
           (if (and (<> (pref (tref fq 9) idx) CELL_FLUID)
                    (= (pref (tref fq 11) idx) 0))
-              (begin
-            ;; (printf "idx: %d\n" idx)
-              (set! border (cons idx border))))
+              (set! border (cons idx border)))
           (set! x (+ 1 x)))
         (set! y (+ 1 y)))
         (while (not (null? border))
@@ -650,23 +648,37 @@
           (set! border (cdr border))
           (pset! src idx (extrapolateNormal fq idx))
            (if (> (pref normalX (- idx 1)) 0.)
-            (begin
-            ;;  (printf " 1 ")
-            (set! border (freeNeighbour fq (- idx 1) border (convert 2 i32)))))
+            (set! border (freeNeighbour fq (- idx 1) border (convert 2 i32))))
            (if (< (pref normalX (+ idx 1)) 0.)
-            (begin
-            ;;  (printf " 2 ")
-            (set! border (freeNeighbour fq (+ idx 1) border (convert 2 i32)))))
+            (set! border (freeNeighbour fq (+ idx 1) border (convert 2 i32))))
            (if (> (pref normalY (- idx w)) 0.)
-            (begin
-            ;;  (printf " 3 ")
-            (set! border (freeNeighbour fq (- idx w) border (convert 1 i32)))))
+            (set! border (freeNeighbour fq (- idx w) border (convert 1 i32))))
            (if (< (pref normalY (+ idx  w)) 0.)
-            (begin
-              ;;(printf " 4 ")
-            (set! border (freeNeighbour fq (+ idx w) border (convert 1 i32)))))
-            ;;(printf "\n")
+            (set! border (freeNeighbour fq (+ idx w) border (convert 1 i32))))
           ))))
+
+(bind-func expelfluid
+  (lambda (fq:FluidQuantity* body:SolidBody*)
+    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9))
+          (ix 0) (iy 0) (idx 0) (x:double* (alloc)) (y:double* (alloc)))
+      (dotimes (iy h)
+        (dotimes (ix w)
+          (if (= (pref cell idx) CELL_SOLID)
+            (begin
+              (pset! x 0 (+ (convert ix) (tref fq 4)))
+              (pset! y 0 (+ (convert iy) (tref fq 5)))
+              ;(printf "density:%f ||" (at:[double,FluidQuantity*,i32,i32]* fq ix iy))
+              ;(printf "x:%f, y:%f --> " (pref x 0) (pref y 0))
+              (pset! x 0 (* (- (pref x 0) (tref fq 4)) (tref fq 6)))
+              (pset! y 0 (* (- (pref y 0) (tref fq 5)) (tref fq 6)))
+              (closestSurfacePoint body x y)
+              (pset! x 0 (+ (/ (pref x 0) (tref fq 6)) (tref fq 4)))
+              (pset! y 0 (+ (/ (pref y 0) (tref fq 6)) (tref fq 5)))
+              ;(printf "x:%f, y:%f --> x:%d, y:%d\n" ()(convert (pref x 0) i32) (convert (pref y 0) i32))
+              (pset! (tref fq 1) idx (cerp:[double,FluidQuantity*,double,double]* fq (pref x 0) (pref y 0)))
+                (pset! (tref fq 1) idx 0.0)))
+                (set! idx (+ 1 idx))))
+                void)))
 
 (bind-type FluidSolver <FluidQuantity*,FluidQuantity*,FluidQuantity*,i32,i32,double,double,double*,double*,double*,double*,double*,double*,double*,double*,List{SolidBody*}*>
   (constructor? . #f)
@@ -733,77 +745,6 @@
     (free (tref fs 7))
     (free (tref fs 8))
     (free fs)))
-
-(bind-func printinfouat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 1)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "u: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" k)
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
-(bind-func printinfovat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 2)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "v: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
-(bind-func printinfodat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 0)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "d: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
-
 
 ;; accessor functions for pointers to the raw data
 
@@ -1099,6 +1040,7 @@
     (extrapolate d)
     (extrapolate v)
     (setBoundaryCondition fs)
+    (expelfluid d (car bodies))
     (advect d timestep u v bodies)
     (advect u timestep u v bodies)
     (advect v timestep u v bodies)
