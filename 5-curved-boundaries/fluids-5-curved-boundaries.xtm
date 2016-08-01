@@ -495,7 +495,8 @@
           (rungeKutta3 fq x y timestep u v)
           ;; Second component: Interpolate from grid
           (backProject fq x y bodies)
-          (pset! (tref fq 1) idx (cerp:[double,FluidQuantity*,double,double]* fq (pref x 0) (pref y 0)))))
+          (pset! (tref fq 1) idx (cerp:[double,FluidQuantity*,double,double]* fq (pref x 0) (pref y 0))))
+          (pset! (tref fq 1) idx 0.0))
           (set! idx (+ idx 1))))
     void)))
 
@@ -657,28 +658,90 @@
             (set! border (freeNeighbour fq (+ idx w) border (convert 1 i32))))
           ))))
 
-(bind-func expelfluid
-  (lambda (fq:FluidQuantity* body:SolidBody*)
-    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9))
-          (ix 0) (iy 0) (idx 0) (x:double* (alloc)) (y:double* (alloc)))
-      (dotimes (iy h)
-        (dotimes (ix w)
-          (if (= (pref cell idx) CELL_SOLID)
+(bind-func moveleft
+  (lambda (fq:FluidQuantity*)
+    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9)) (displaced 0.0)
+          (ix 1) (iy 1) (idx 0))
+      (while (< iy (- h 1))
+        (set! ix 1)
+        (while (< ix (- w 1))
+          (set! idx (+ ix (* w iy)))
+          (if (= (pref cell (+ idx 1)) CELL_SOLID)
             (begin
-              (pset! x 0 (+ (convert ix) (tref fq 4)))
-              (pset! y 0 (+ (convert iy) (tref fq 5)))
-              ;(printf "density:%f ||" (at:[double,FluidQuantity*,i32,i32]* fq ix iy))
-              ;(printf "x:%f, y:%f --> " (pref x 0) (pref y 0))
-              (pset! x 0 (* (- (pref x 0) (tref fq 4)) (tref fq 6)))
-              (pset! y 0 (* (- (pref y 0) (tref fq 5)) (tref fq 6)))
-              (closestSurfacePoint body x y)
-              (pset! x 0 (+ (/ (pref x 0) (tref fq 6)) (tref fq 4)))
-              (pset! y 0 (+ (/ (pref y 0) (tref fq 6)) (tref fq 5)))
-              ;(printf "x:%f, y:%f --> x:%d, y:%d\n" ()(convert (pref x 0) i32) (convert (pref y 0) i32))
-              (pset! (tref fq 1) idx (cerp:[double,FluidQuantity*,double,double]* fq (pref x 0) (pref y 0)))
-                (pset! (tref fq 1) idx 0.0)))
-                (set! idx (+ 1 idx))))
-                void)))
+              (set! displaced (at:[double,FluidQuantity*,i32,i32]* fq ix iy))
+              (pset! (tref fq 0) (- idx 1) (min (+ (pref (tref fq 0) idx) displaced) 1.0))))
+          (set! ix (+ ix 1)))
+          (set! iy (+ iy 1))))))
+
+(bind-func moveright
+  (lambda (fq:FluidQuantity*)
+    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9)) (displaced 0.0)
+          (ix 1) (iy 1) (idx 0))
+      (while (< iy (- h 1))
+        (set! ix 1)
+        (while (< ix (- w 1))
+          (set! idx (+ ix (* w iy)))
+          (if (= (pref cell (- idx 1)) CELL_SOLID)
+            (begin
+              (set! displaced (at:[double,FluidQuantity*,i32,i32]* fq ix iy))
+              (pset! (tref fq 0) (+ idx 1) (min (+ (pref (tref fq 0) idx) displaced) 1.0))))
+          (set! ix (+ ix 1)))
+          (set! iy (+ iy 1))))))
+
+(bind-func moveup
+  (lambda (fq:FluidQuantity*)
+    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9)) (displaced 0.0)
+          (ix 1) (iy 1) (idx 0))
+      (while (< iy (- h 1))
+        (set! ix 1)
+        (while (< ix (- w 1))
+          (set! idx (+ ix (* w iy)))
+          (if (= (pref cell (- idx w)) CELL_SOLID)
+            (begin
+              (set! displaced (at:[double,FluidQuantity*,i32,i32]* fq ix iy))
+              (pset! (tref fq 0) (+ idx w) (min (+ (pref (tref fq 0) idx) displaced) 1.0))))
+          (set! ix (+ ix 1)))
+          (set! iy (+ iy 1))))))
+
+(bind-func movedown
+  (lambda (fq:FluidQuantity*)
+    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9)) (displaced 0.0)
+          (ix 1) (iy 1) (idx 0))
+      (while (< iy (- h 1))
+        (set! ix 1)
+        (while (< ix (- w 1))
+          (set! idx (+ ix (* w iy)))
+          (if (= (pref cell (+ idx w)) CELL_SOLID)
+            (begin
+              (set! displaced (at:[double,FluidQuantity*,i32,i32]* fq ix iy))
+              (pset! (tref fq 0) (- idx w) (min (+ (pref (tref fq 0) idx) displaced) 1.0))))
+          (set! ix (+ ix 1)))
+          (set! iy (+ iy 1))))))
+
+;;(bind-func expelfluid
+;;  (lambda (fq:FluidQuantity* body:SolidBody*)
+;;    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9)) (displaced 0.0)
+;;          (ix 0) (iy 0) (idx 0) (x:double* (alloc)) (y:double* (alloc)))
+;;      (dotimes (iy h)
+;;        (dotimes (ix w)
+;;          (if (= (pref cell idx) CELL_SOLID)
+;;            (begin
+;;              (set! displaced (at:[double,FluidQuantity*,i32,i32]* fq ix iy))
+;;              (pset! x 0 (+ (convert ix) (tref fq 4)))
+;;              (pset! y 0 (+ (convert iy) (tref fq 5)))
+;;              (printf "x:%f, y:%f --> " (pref x 0) (pref y 0))
+;;              (pset! x 0 (* (- (pref x 0) (tref fq 4)) (tref fq 6)))
+;;              (pset! y 0 (* (- (pref y 0) (tref fq 5)) (tref fq 6)))
+;;              (closestSurfacePoint body x y)
+;;              (pset! x 0 (+ (/ (pref x 0) (tref fq 6)) (tref fq 4)))
+;;              (pset! y 0 (+ (/ (pref y 0) (tref fq 6)) (tref fq 5)))
+;;              (printf "x:%f, y:%f --> x:%d, y:%d\n" (pref x 0) (pref y 0) (convert (pref x 0) i32) (convert (pref y 0) i32))
+;;              ;  (pset! (tref fq 0) (+ (convert (pref x 0) i32) (* w (convert (pref y 0) i32))) (1.0))
+;;                ;(pset! (at:[double*,FluidQuantity*,i32,i32]* fq (+ (convert (pref y 0) i32) 10) (convert (pref x 0 ))) 0 1.0)
+;;                ;(pset! (tref fq 0) idx 1.0)
+;;                (pset! (tref fq 0) idx 0.0)))
+;;                (set! idx (+ 1 idx))))
+;;                void)))
 
 (bind-type FluidSolver <FluidQuantity*,FluidQuantity*,FluidQuantity*,i32,i32,double,double,double*,double*,double*,double*,double*,double*,double*,double*,List{SolidBody*}*>
   (constructor? . #f)
@@ -762,8 +825,6 @@
 
 ;; TODO. _src/_dst don't seem to be gettin set. should happen in either
 ;; addInFlows or in applyPressure - need to check if that's happening
-
-
 
 (bind-func buildRhs
   "Builds the pressure right hand side as the negative divergence"
@@ -968,7 +1029,7 @@
                   (scaledAdd fs s z s (/ sigmaNew sigma))
                   (set! sigma sigmaNew))
                 (set! iter (+ iter 1))))))
-          (printf "Exiting solver after %d iterations, maximum error is %f\n" iter maxError))))
+                )))
 
 (bind-func applyPressure
   "Applies the computed pressure to the velocity field"
@@ -1040,7 +1101,6 @@
     (extrapolate d)
     (extrapolate v)
     (setBoundaryCondition fs)
-    (expelfluid d (car bodies))
     (advect d timestep u v bodies)
     (advect u timestep u v bodies)
     (advect v timestep u v bodies)
@@ -1048,6 +1108,7 @@
     (flip (tref fs 0))
     (flip (tref fs 1))
     (flip (tref fs 2))
+  ;  (expelfluid d (car bodies))
     )))
 
 (bind-func addInFlow

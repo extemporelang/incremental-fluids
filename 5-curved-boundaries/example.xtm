@@ -42,29 +42,30 @@
             (sys_slurp_file "5-curved-boundaries/texture.frag"))))
 
 (bind-func move_body
-  (lambda (body:SolidBody* window:GLFWwindow*)
+  (lambda (body:SolidBody* window:GLFWwindow* fs:FluidSolver*)
     void))
 
 (bind-func runsimulation
   (lambda (time:i64 delta_t:double solver:FluidSolver*)
-    (let ((densityAir .1) (densitySoot 1.) (diffusion 0.01) (timestep 0.005)
-    (bodies (list (SolidBox 0.85 0.45 0.1 0.1 (* PI .0) 0.0 0.0 0.0))))
+    (let ((densityAir .1) (densitySoot:double 1.) (diffusion:double 0.01) (timestep 0.005))
+    ;(bodies (list (SolidBox 0.5 0.6 0.1 0.1 (* PI .0) 0.0 0.0 0.0))))
     ;(tset! solver 15 bodies)
     (tset! solver 6 densityAir)
     (addInFlow solver 0.4 0.05 0.2 0.03 1.0 0.0 1.0)
+  ;  (addInFlow solver 0.1 0.9 0.9 0.1 1.0 0.0 -5.0)
     (updatefs solver timestep))))
 
 (bind-func gl_draw_loop
   (let ((sizex 128)
         (sizey sizex)
-        (bodies (list (SolidBox 0.40 0.45 0.15 0.15 (* PI .0) 0.0 0.0 0.0)))
+        (bodies (list (SolidBox 0.5 0.5 0.1 0.1 0. 0. 0. 0.)))
         (solver (FluidSolver sizex sizey 0.0 bodies)) (iteration 0)
         (imagedata:float* (alloc (* sizex sizey))))
     (lambda (time:i64 delta_t:double)
       ;(printf "iteration:%d\n" iteration)
-      (runsimulation time delta_t solver)
       (glfwPollEvents)
-      (move_body (car (tref solver 15)) window)
+      (move_body (car (tref solver 15)) window solver)
+      (runsimulation time delta_t solver)
       ;; draw the world
       (glClear GL_COLOR_BUFFER_BIT)
       (let ((texloc (glGetUniformLocation sp "tex")))
@@ -85,8 +86,8 @@
 (gl_draw_loop (now) (/ 1. 60.))
 
 (bind-func move_body
-  (let ((speed 0.005))
-    (lambda (body:SolidBody* window:GLFWwindow*)
+    (lambda (body:SolidBody* window:GLFWwindow* fs:FluidSolver*)
+    (let ((speed (tref fs 5)))
     (if (or (= GLFW_PRESS (glfwGetKey window GLFW_KEY_LEFT_SHIFT))
             (= GLFW_PRESS (glfwGetKey window GLFW_KEY_RIGHT_SHIFT)))
           (begin
@@ -98,13 +99,22 @@
               (tset! body 3 (+ (tref body 4) speed)))
           (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_UP))
               (tset! body 3 (- (tref body 4) speed))))
+        ;; this bit doesn't quite work yet, need absolute values in main code or restrictions on scale range
         (begin
         (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_LEFT))
-            (tset! body 0 (- (tref body 0) speed)))
+          (begin
+            (tset! body 0 (- (tref body 0) speed))
+            (moveleft (tref fs 0))))
         (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_RIGHT))
+          (begin
             (tset! body 0 (+ (tref body 0) speed)))
+            (moveright (tref fs 0))))
         (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_DOWN))
+          (begin
             (tset! body 1 (+ (tref body 1) speed)))
+            (movedown (tref fs 0))))
         (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_UP))
+          (begin
             (tset! body 1 (- (tref body 1) speed)))))
+            (moveup (tref fs 0))))
         void)))
