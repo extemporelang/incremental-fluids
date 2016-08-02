@@ -658,66 +658,6 @@
             (set! border (freeNeighbour fq (+ idx w) border (convert 1 i32))))
           ))))
 
-(bind-func moveleft
-  (lambda (fq:FluidQuantity*)
-    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9)) (displaced 0.0)
-          (ix 1) (iy 1) (idx 0))
-      (while (< iy (- h 1))
-        (set! ix 1)
-        (while (< ix (- w 1))
-          (set! idx (+ ix (* w iy)))
-          (if (= (pref cell (+ idx 1)) CELL_SOLID)
-            (begin
-              (set! displaced (at:[double,FluidQuantity*,i32,i32]* fq ix iy))
-              (pset! (tref fq 0) (- idx 1) (min (+ (pref (tref fq 0) idx) displaced) 1.0))))
-          (set! ix (+ ix 1)))
-          (set! iy (+ iy 1))))))
-
-(bind-func moveright
-  (lambda (fq:FluidQuantity*)
-    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9)) (displaced 0.0)
-          (ix 1) (iy 1) (idx 0))
-      (while (< iy (- h 1))
-        (set! ix 1)
-        (while (< ix (- w 1))
-          (set! idx (+ ix (* w iy)))
-          (if (= (pref cell (- idx 1)) CELL_SOLID)
-            (begin
-              (set! displaced (at:[double,FluidQuantity*,i32,i32]* fq ix iy))
-              (pset! (tref fq 0) (+ idx 1) (min (+ (pref (tref fq 0) idx) displaced) 1.0))))
-          (set! ix (+ ix 1)))
-          (set! iy (+ iy 1))))))
-
-(bind-func moveup
-  (lambda (fq:FluidQuantity*)
-    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9)) (displaced 0.0)
-          (ix 1) (iy 1) (idx 0))
-      (while (< iy (- h 1))
-        (set! ix 1)
-        (while (< ix (- w 1))
-          (set! idx (+ ix (* w iy)))
-          (if (= (pref cell (- idx w)) CELL_SOLID)
-            (begin
-              (set! displaced (at:[double,FluidQuantity*,i32,i32]* fq ix iy))
-              (pset! (tref fq 0) (+ idx w) (min (+ (pref (tref fq 0) idx) displaced) 1.0))))
-          (set! ix (+ ix 1)))
-          (set! iy (+ iy 1))))))
-
-(bind-func movedown
-  (lambda (fq:FluidQuantity*)
-    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9)) (displaced 0.0)
-          (ix 1) (iy 1) (idx 0))
-      (while (< iy (- h 1))
-        (set! ix 1)
-        (while (< ix (- w 1))
-          (set! idx (+ ix (* w iy)))
-          (if (= (pref cell (+ idx w)) CELL_SOLID)
-            (begin
-              (set! displaced (at:[double,FluidQuantity*,i32,i32]* fq ix iy))
-              (pset! (tref fq 0) (- idx w) (min (+ (pref (tref fq 0) idx) displaced) 1.0))))
-          (set! ix (+ ix 1)))
-          (set! iy (+ iy 1))))))
-
 ;;(bind-func expelfluid
 ;;  (lambda (fq:FluidQuantity* body:SolidBody*)
 ;;    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9)) (displaced 0.0)
@@ -761,7 +701,6 @@
   13 - matrix off-diagonals x
   14 - matrix off-diagonals y
   15 - Solid Bodies")
-
 
 (bind-func FluidSolver
   (lambda (w h density cBodies)
@@ -1110,6 +1049,76 @@
     (flip (tref fs 2))
   ;  (expelfluid d (car bodies))
     )))
+
+(bind-func displacefluid
+  (lambda (fs:FluidSolver* dir)
+    (let ((w (tref fs 3)) (h (tref fs 4))
+           (displaced 0.0)
+          (ix 1) (iy 1) (idx 0) (a 0)
+          (d (tref fs 0)) (u (tref fs 1)) (v (tref fs 2))
+          (cell (tref d 9)))
+      (while (< iy (- h 1))
+        (set! ix 1)
+        (while (< ix (- w 1))
+          (set! idx (+ ix (* w iy)))
+              (cond
+                ((= dir 0)
+                  (if (= (pref cell (+ idx 1)) CELL_SOLID) ; left
+                    (begin
+                      (set! displaced (at:[double,FluidQuantity*,i32,i32]* d (- ix 1) iy))
+                      (pset! (tref d 0) (- idx 1) (+ (pref (tref d 0) idx) displaced))
+                      (pset! (tref u 0) (- (+ ix (* (+ w 1) iy)) 1) -1.0))))
+                ((= dir 1)
+                  (if (= (pref cell (- idx 1)) CELL_SOLID) ; right
+                    (begin
+                      (set! displaced (at:[double,FluidQuantity*,i32,i32]* d (+ ix 2) iy))
+                      (pset! (tref d 0) (+ idx 1) (+ (pref (tref d 0) idx) displaced))
+                      (pset! (tref u 0) (+ ix (* (+ w 1) iy) 2) 1.0))))
+                ((= dir 2)
+                  (if (= (pref cell (- idx w)) CELL_SOLID) ; down 
+                    (begin
+                      (set! displaced (at:[double,FluidQuantity*,i32,i32]* d (+ ix (* 2 w)) iy))
+                      (pset! (tref d 0) (+ idx w) (+ (pref (tref d 0) idx) displaced))
+                      (pset! (tref v 0) (+ idx w) -1.0))))
+                ((= dir 3)
+                  (if (= (pref cell (+ idx w)) CELL_SOLID) ; up
+                    (begin
+                      (set! displaced (at:[double,FluidQuantity*,i32,i32]* d (- ix (* 2 w)) iy))
+                      (pset! (tref d 0) (- idx w) (+ (pref (tref d 0) idx) displaced))
+                      (pset! (tref v 0) (- idx w) 1.0)))))
+                (set! ix (+ ix 1)))
+                (set! iy (+ iy 1)))
+          void)))
+
+;;(bind-func moveup
+;;  (lambda (fs:FluidSolver*)
+;;    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9)) (displaced 0.0)
+;;          (ix 1) (iy 1) (idx 0) (d (tref fs 0)) (u (tref fs 1)) (v (tref fs 2))
+;;      (while (< iy (- h 1))
+;;        (set! ix 1)
+;;        (while (< ix (- w 1))
+;;          (set! idx (+ ix (* w iy)))
+;;          (if (= (pref cell (- idx w)) CELL_SOLID)
+;;            (begin
+;;              (set! displaced (at:[double,FluidQuantity*,i32,i32]* fq ix iy))
+;;              (pset! (tref fq 0) (+ idx w) (min (+ (pref (tref fq 0) idx) displaced) 1.0))))
+;;          (set! ix (+ ix 1)))
+;;          (set! iy (+ iy 1)))))))
+;;
+;;(bind-func movedown
+;;  (lambda (fs:FluidSolver*)
+;;    (let ((w (tref fq 2)) (h (tref fq 3)) (cell (tref fq 9)) (displaced 0.0)
+;;          (ix 1) (iy 1) (idx 0) (d (tref fs 0)) (u (tref fs 1)) (v (tref fs 2))
+;;      (while (< iy (- h 1))
+;;        (set! ix 1)
+;;        (while (< ix (- w 1))
+;;          (set! idx (+ ix (* w iy)))
+;;          (if (= (pref cell (+ idx w)) CELL_SOLID)
+;;            (begin
+;;              (set! displaced (at:[double,FluidQuantity*,i32,i32]* fq ix iy))
+;;              (pset! (tref fq 0) (- idx w) (min (+ (pref (tref fq 0) idx) displaced) 1.0))))
+;;          (set! ix (+ ix 1)))
+;;          (set! iy (+ iy 1))))))
 
 (bind-func addInFlow
   "Set density and x/y velocity in given rectangle to d/u/v, respectively"

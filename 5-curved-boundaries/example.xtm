@@ -51,14 +51,15 @@
     ;(bodies (list (SolidBox 0.5 0.6 0.1 0.1 (* PI .0) 0.0 0.0 0.0))))
     ;(tset! solver 15 bodies)
     (tset! solver 6 densityAir)
-    (addInFlow solver 0.4 0.05 0.2 0.03 1.0 0.0 1.0)
-  ;  (addInFlow solver 0.1 0.9 0.9 0.1 1.0 0.0 -5.0)
+    (addInFlow solver 0.5 0.3 0.2 0.2 1.0 0.0 0.0)
+;    (addInFlow solver 0.1 0.9 0.9 0.1 1.0 0.0 .0)
     (updatefs solver timestep))))
 
 (bind-func gl_draw_loop
   (let ((sizex 128)
         (sizey sizex)
-        (bodies (list (SolidBox 0.5 0.5 0.1 0.1 0. 0. 0. 0.)))
+      ;  (hx (/ 1. (convert sizex)))
+        (bodies (list (SolidBox 0.5 0.5 .1 .1 0. 0. 0. 0.)))
         (solver (FluidSolver sizex sizey 0.0 bodies)) (iteration 0)
         (imagedata:float* (alloc (* sizex sizey))))
     (lambda (time:i64 delta_t:double)
@@ -88,33 +89,20 @@
 (bind-func move_body
     (lambda (body:SolidBody* window:GLFWwindow* fs:FluidSolver*)
     (let ((speed (tref fs 5)))
-    (if (or (= GLFW_PRESS (glfwGetKey window GLFW_KEY_LEFT_SHIFT))
-            (= GLFW_PRESS (glfwGetKey window GLFW_KEY_RIGHT_SHIFT)))
-          (begin
-          (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_LEFT))
-              (tset! body 2 (- (tref body 3) speed)))
-          (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_RIGHT))
-              (tset! body 2 (+ (tref body 3) speed)))
-          (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_DOWN))
-              (tset! body 3 (+ (tref body 4) speed)))
-          (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_UP))
-              (tset! body 3 (- (tref body 4) speed))))
-        ;; this bit doesn't quite work yet, need absolute values in main code or restrictions on scale range
-        (begin
         (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_LEFT))
           (begin
-            (tset! body 0 (- (tref body 0) speed))
-            (moveleft (tref fs 0))))
+            (displacefluid fs 0)
+            (tset! body 0 (- (tref body 0) speed))))
         (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_RIGHT))
           (begin
-            (tset! body 0 (+ (tref body 0) speed)))
-            (moveright (tref fs 0))))
+            (displacefluid fs 1)
+            (tset! body 0 (+ (tref body 0) speed))))
         (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_DOWN))
           (begin
-            (tset! body 1 (+ (tref body 1) speed)))
-            (movedown (tref fs 0))))
+            (displacefluid fs 2)
+            (tset! body 1 (+ (tref body 1) speed))))
         (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_UP))
           (begin
-            (tset! body 1 (- (tref body 1) speed)))))
-            (moveup (tref fs 0))))
+            (displacefluid fs 3)
+            (tset! body 1 (- (tref body 1) speed))))
         void)))
