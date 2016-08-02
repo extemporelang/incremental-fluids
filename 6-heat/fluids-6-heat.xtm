@@ -1076,7 +1076,7 @@
                   (scaledAdd fs s z s (/ sigmaNew sigma))
                   (set! sigma sigmaNew))
                 (set! iter (+ iter 1))))))
-          (printf "Exiting solver after %d iterations, maximum error is %f\n" iter maxError))))
+        )))
 
 (bind-func applyPressure
   "Applies the computed pressure to the velocity field"

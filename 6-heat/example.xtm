@@ -37,21 +37,64 @@
    (sys_slurp_file "examples/external/shader-tutorials/texture.vert")
    (sys_slurp_file "examples/external/shader-tutorials/texture.frag")))
 
-;; ($ (set! sp (ShaderProgram_create
-;;              (sys_slurp_file "1-matrixless/texture.vert")
-;;              (sys_slurp_file "1-matrixless/texture.frag"))))
+
+
+
+(bind-func cursoraddInflow
+  (lambda (solver:FluidSolver* window:i8*)
+  (let ((xpos:double* (alloc)) (ypos:double* (alloc)))
+          (glfwGetCursorPos window xpos ypos)
+          (pset! xpos 0 (/ (pref xpos 0) 800.))
+          (pset! ypos 0 (/ (pref ypos 0) 600.))
+          (printf "%f, %f\n" (pref xpos 0) (pref ypos 0))
+          (addInFlow solver (- (pref xpos 0) .05) (- (pref ypos 0) .05) 0.1 0.1 1.0 (+ (tref solver 20) 100) 0. 0.)
+          void)))
+
+(bind-func addcursorheat
+ (lambda (fs:FluidSolver* window:i8*)
+   (let ((xpos:double* (alloc)) (ypos:double* (alloc))
+        (ixpos:i32 0) (iypos:i32 0) (idx:i32 0) (temp (tref fs 16)))
+    ;(if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_LEFT_SHIFT))
+    ; (begin
+           (glfwGetCursorPos window xpos ypos)
+           (set! ixpos (convert (/ (pref xpos 0) 6.25) i32))
+           (set! iypos (convert (/ (pref ypos 0) 4.6875) i32))
+           (printf "%d, %d\n" ixpos iypos)
+           (pset! (tref temp 0) (+ (+ ixpos 1) (+ 1 (* (tref fs 3) iypos))) 1000.)
+           (pset! (tref temp 0) (+ (+ ixpos 1) (- (* (tref fs 3) iypos) 1)) 1000.)
+           (pset! (tref temp 0) (+ (+ ixpos 1) (* (tref fs 3) iypos)) 1000.)
+           (pset! (tref temp 0) (+ ixpos (+ 1 (* (tref fs 3) iypos))) 1000.)
+           (pset! (tref temp 0) (+ ixpos (- (* (tref fs 3) iypos) 1)) 1000.)
+           (pset! (tref temp 0) (+ ixpos (* (tref fs 3) iypos)) 1000.)
+           (pset! (tref temp 0) (+ (- ixpos 1) (+ 1 (* (tref fs 3) iypos))) 1000.)
+           (pset! (tref temp 0) (+ (- ixpos 1) (- (* (tref fs 3) iypos) 1)) 1000.)
+           (pset! (tref temp 0) (+ (- ixpos 1) (* (tref fs 3) iypos)) 1000.)
+    void)))
+
+($ (set! sp (ShaderProgram_create
+            (sys_slurp_file "5-curved-boundaries/texture.vert")
+            (sys_slurp_file "5-curved-boundaries/texture.frag"))))
+
+(bind-func runsimulation
+  (lambda (time:i64 delta_t:double solver:FluidSolver*)
+    (let ((densityAir 0.1) (densitySoot 2.) (diffusion 0.3) (timestep 0.005)
+    (bodies (list (SolidBox 0.0 0.6 0.0 0.0 (* PI .25) 0.0 0.0 0.0))))
+    (tset! solver 15 bodies)
+    (tset! solver 17 densityAir)
+    (tset! solver 18 densitySoot)
+    (tset! solver 19 diffusion)
+    (addInFlow solver 0.45 0.2 0.1 0.05 1.0 (tref solver 20) 0.0 1.0)
+    (updatefs solver timestep))))
 
 (bind-func gl_draw_loop
   (let ((sizex 128)
-        (sizey sizex) (renderHear #t)
-        (densityAir 0.1) (densitySoot 0.1) (diffusion 0.01)
-        (bodies (list (SolidBox 0.3 0.6 0.1 0.5 (* -1. PI 0.05) 0.0 0.0 0.0)))
-        (solver (FluidSolver sizex sizey bodies densityAir densitySoot diffusion))
-        (timestep 0.005) (iter 0) (u (tref solver 1))
+        (sizey sizex)
+        (solver (FluidSolver sizex sizey null 0.0 0.0 0.0))
         (imagedata:float* (alloc (* sizex sizey))))
     (lambda (time:i64 delta_t:double)
-      (addInFlow solver 0.35 0.9 0.1 0.05 1.0 (+ (tref solver 20) 300.) 0.0 0.0)
-      (updatefs solver timestep)
+  ;    (addcursorheat solver window)
+  ;    (cursoraddInflow solver window)
+      (runsimulation time delta_t solver)
       ;; draw the world
       (glClear GL_COLOR_BUFFER_BIT)
       (let ((texloc (glGetUniformLocation sp "tex")))
@@ -60,8 +103,8 @@
       ;; copy the double density data into the float buffer (since OpenGL prefers floats to doubles)
       (doloop (j (* sizex sizey))
         (pset! imagedata j (convert (pref (fsd solver) j)))
-        (if (= 1. (convert (pref (tref (tref solver 0) 9) j)))
-            (pset! imagedata j 1.)))
+        (if (= CELL_SOLID (convert (pref (tref (tref solver 0) 9) j)))
+            (pset! imagedata j 0.9)))
       (Texture_bind_data tex imagedata sizex sizey 1 GL_CLAMP_TO_EDGE GL_NEAREST)
       (VAO_bind_and_draw_arrays vao GL_TRIANGLE_STRIP 0 4)
       (glfwSwapBuffers window)
