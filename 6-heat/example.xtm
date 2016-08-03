@@ -37,25 +37,25 @@
    (sys_slurp_file "examples/external/shader-tutorials/texture.vert")
    (sys_slurp_file "examples/external/shader-tutorials/texture.frag")))
 
-
-
-
 (bind-func cursoraddInflow
   (lambda (solver:FluidSolver* window:i8*)
   (let ((xpos:double* (alloc)) (ypos:double* (alloc)))
-          (glfwGetCursorPos window xpos ypos)
-          (pset! xpos 0 (/ (pref xpos 0) 800.))
-          (pset! ypos 0 (/ (pref ypos 0) 600.))
-          (printf "%f, %f\n" (pref xpos 0) (pref ypos 0))
-          (addInFlow solver (- (pref xpos 0) .05) (- (pref ypos 0) .05) 0.1 0.1 1.0 (+ (tref solver 20) 100) 0. 0.)
-          void)))
+    (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_RIGHT_SHIFT))
+     (begin
+        (glfwGetCursorPos window xpos ypos)
+        (pset! xpos 0 (/ (pref xpos 0) 800.))
+        (pset! ypos 0 (/ (pref ypos 0) 600.))
+        (printf "%f, %f\n" (pref xpos 0) (pref ypos 0))
+        (addInFlow solver (- (pref xpos 0) .05) (- (pref ypos 0) .05) 0.1 0.1 1.0 (+ (tref solver 20) 100) 0. 0.)
+        (println "Fluid added at %d,%d" (convert (* (pref xpos 0) 128) i32) (convert (* (pref ypos 0) 128) i32))))
+        void)))
 
 (bind-func addcursorheat
  (lambda (fs:FluidSolver* window:i8*)
    (let ((xpos:double* (alloc)) (ypos:double* (alloc))
         (ixpos:i32 0) (iypos:i32 0) (idx:i32 0) (temp (tref fs 16)))
-    ;(if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_LEFT_SHIFT))
-    ; (begin
+    (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_LEFT_SHIFT))
+     (begin
            (glfwGetCursorPos window xpos ypos)
            (set! ixpos (convert (/ (pref xpos 0) 6.25) i32))
            (set! iypos (convert (/ (pref ypos 0) 4.6875) i32))
@@ -69,6 +69,7 @@
            (pset! (tref temp 0) (+ (- ixpos 1) (+ 1 (* (tref fs 3) iypos))) 1000.)
            (pset! (tref temp 0) (+ (- ixpos 1) (- (* (tref fs 3) iypos) 1)) 1000.)
            (pset! (tref temp 0) (+ (- ixpos 1) (* (tref fs 3) iypos)) 1000.)
+           (println "Heat added around %d,%d" ixpos iypos)))
     void)))
 
 ($ (set! sp (ShaderProgram_create
@@ -84,6 +85,8 @@
     (tset! solver 18 densitySoot)
     (tset! solver 19 diffusion)
     (addInFlow solver 0.45 0.2 0.1 0.05 1.0 (tref solver 20) 0.0 1.0)
+    (addcursorheat solver window)
+    (cursoraddInflow solver window)
     (updatefs solver timestep))))
 
 (bind-func gl_draw_loop
@@ -92,8 +95,6 @@
         (solver (FluidSolver sizex sizey null 0.0 0.0 0.0))
         (imagedata:float* (alloc (* sizex sizey))))
     (lambda (time:i64 delta_t:double)
-  ;    (addcursorheat solver window)
-  ;    (cursoraddInflow solver window)
       (runsimulation time delta_t solver)
       ;; draw the world
       (glClear GL_COLOR_BUFFER_BIT)
