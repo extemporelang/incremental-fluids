@@ -1,0 +1,118 @@
+;;; fluids-1-matrixless.xtm --
+
+;; Author: Ben Swift
+;; Keywords: extempore
+;; Required dylibs:
+
+;;; Commentary:
+
+;;
+
+;;; Code:
+
+
+(bind-func length
+  (lambda (x:double y:double)
+    (sqrt (+ (* x x) (* y y)))))
+
+(bind-func cubicPulse
+  (lambda (x:double)
+    (set! x (min (fabs x) 1.))
+    (- 1. (* x x (- 3. (* 2. x))))))
+
+(bind-func cerp
+  (lambda (a b c d x)
+    (let ((xsq (* x x)) (xcu (* x xsq))
+          (minV (min a (min b (min c d))))
+          (maxV (max a (max b (max c d))))
+          (t
+            (+ (* a (- (+ 0.0 (* 1.0 xsq)) (+ (* 0.5 x) (* 0.5 xcu))))
+               (* b (- (+ 1.0 (* 0.0 x) (* 1.5 xcu)) (* 2.5 xsq)))
+               (* c (- (+ 0.0 (* 0.5 x) (* 2.0 xsq)) (* 1.5 xcu)))
+               (* d (- (+ 0.0 (* 0.0 x) (* 0.5 xcu)) (* 0.5 xsq))))))
+               (min (max t minV) maxV))))
+
+(bind-func cerp
+  "Cubic intERPolate on grid at coordinates (x, y).
+  Coordinates will be clamped to lie in simulation domain"
+  (lambda (fq:FluidQuantity* x:double y:double)
+    (let ((ox (tref fq 4)) (oy (tref fq 5)) (w:i32 (tref fq 2)) (h:i32 (tref fq 3)))
+    (set! x (min (max (- x ox) 0.) (- (convert w) 1.001)))
+    (set! y (min (max (- y oy) 0.) (- (convert h) 1.001)))
+    (let ((ix (convert x i32))
+          (iy (convert y i32)))
+      (set! x (- x (convert ix)))
+      (set! y (- y (convert iy)))
+      (let ((x0 (max (- ix 1) 0)) (x1 ix) (x2 (+ ix 1)) (x3 (min (+ ix 2) (- w 1)))
+            (y0 (max (- iy 1) 0)) (y1 iy) (y2 (+ iy 1)) (y3 (min (+ iy 2) (- h 1))))
+          (let ((q0 (cerp:[double,double,double,double,double,double]*
+            (at:[double,FluidQuantity*,i32,i32]* fq x0 y0) (at:[double,FluidQuantity*,i32,i32]* fq x1 y0) (at:[double,FluidQuantity*,i32,i32]* fq x2 y0) (at:[double,FluidQuantity*,i32,i32]* fq x3 y0) x))
+                (q1 (cerp:[double,double,double,double,double,double]*
+            (at:[double,FluidQuantity*,i32,i32]* fq x0 y1) (at:[double,FluidQuantity*,i32,i32]* fq x1 y1) (at:[double,FluidQuantity*,i32,i32]* fq x2 y1) (at:[double,FluidQuantity*,i32,i32]* fq x3 y1) x))
+                (q2 (cerp:[double,double,double,double,double,double]*
+            (at:[double,FluidQuantity*,i32,i32]* fq x0 y2) (at:[double,FluidQuantity*,i32,i32]* fq x1 y2) (at:[double,FluidQuantity*,i32,i32]* fq x2 y2) (at:[double,FluidQuantity*,i32,i32]* fq x3 y2) x))
+                (q3 (cerp:[double,double,double,double,double,double]*
+            (at:[double,FluidQuantity*,i32,i32]* fq x0 y3) (at:[double,FluidQuantity*,i32,i32]* fq x1 y3) (at:[double,FluidQuantity*,i32,i32]* fq x2 y3) (at:[double,FluidQuantity*,i32,i32]* fq x3 y3) x)))
+            (let ((k (cerp:[double,double,double,double,double,double]* q0 q1 q2 q3 y)))
+               (cerp:[double,double,double,double,double,double]* q0 q1 q2 q3 y))))))))
+
+(bind-func rungeKutta3
+ (lambda (fq:FluidQuantity* xp:double* yp:double* timestep u:FluidQuantity* v:FluidQuantity*)
+   (let ((hx (tref fq 6)) (x (pref xp 0)) (y (pref yp 0))
+     (firstU (/ (lerp u x y) hx))
+     (firstV (/ (lerp v x y) hx))
+       (midX (- x (* 0.5 timestep firstU)))
+       (midY (- y (* 0.5 timestep firstV)))
+       (midU (/ (lerp u midX midY) hx))
+       (midV (/ (lerp v midX midY) hx))
+           (lastX (- x (* 0.75 timestep midU)))
+           (lastY (- y (* 0.75 timestep midV)))
+           (lastU (lerp u lastX lastY))
+           (lastV (lerp v lastX lastY)))
+                 (pset! xp 0 (- x (* timestep (+ (* (/ 2. 9.) firstU) (* (/ 3. 9.) midU) (* (/ 4. 9.) lastU)))))
+                 (pset! yp 0 (- y (* timestep (+ (* (/ 2. 9.) firstV) (* (/ 3. 9.) midV) (* (/ 4. 9.) lastV)))))
+          void)))
+
+(bind-func advect
+  "Advect grid in velocity field u, v with given timestep"
+  (lambda (fq timestep u v)
+    (let ((ix:i32 0) (idx 0)
+          (iy:i32 0) (idy 0)
+          (x:double* (alloc))
+          (y:double* (alloc)))
+      (dotimes (iy (tref fq 3))
+        (dotimes (ix (tref fq 2))
+          (pset! x 0 (+ (convert ix) (tref fq 4)))
+          (pset! y 0 (+ (convert iy) (tref fq 5)))
+          ;; First component: Integrate in time
+          (rungeKutta3 fq x y timestep u v)
+          ;; Second component: Interpolate from grid
+          (pset! (tref fq 1) idx (cerp:[double,FluidQuantity*,double,double]* fq (pref x 0) (pref y 0)))
+          (set! idx (+ idx 1))))
+    void)))
+
+(bind-func addInFlow
+  "Sets fluid quantity inside the given rect to value `v'"
+  (lambda (fq:FluidQuantity* x0 y0 x1 y1 v)
+    (let ((hx (tref fq 6))
+          (ix0 (convert (- (/ x0 hx) (tref fq 4)) i32))
+          (iy0 (convert (- (/ y0 hx) (tref fq 5)) i32))
+          (ix1 (convert (- (/ x1 hx) (tref fq 4)) i32))
+          (iy1 (convert (- (/ y1 hx) (tref fq 5)) i32))
+           (y (max iy0 0)))
+      ;; Sets fluid quantity inside the given rect to value `v'
+      (while (< y (min iy1 (convert (tref fq 3))))
+      (let ((x (max ix0 0)))
+        (while (< x (min ix1 (convert (tref fq 3))))
+          (let ((l (length (/ (- (* 2. (+ (convert x) .5) hx) (+ x0 x1)) (- x1 x0))
+                           (/ (- (* 2. (+ (convert y) .5) hx) (+ y0 y1)) (- y1 y0))))
+                (vi (* v (cubicPulse l))))
+          (if (< (fabs (pref (tref fq 0) (+ x (* y (tref fq 2)))))
+                 (fabs vi))
+                 (begin
+              (pset! (tref fq 0)
+                     (+ x (* y (tref fq 2)))
+                     vi))))
+          (set! x (+ x 1)))
+        (set! y (+ y 1))))
+      void)))

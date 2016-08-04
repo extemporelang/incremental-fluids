@@ -1,0 +1,50 @@
+;;; fluids-1-matrixless.xtm --
+
+;; Author: Ben Swift
+;; Keywords: extempore
+;; Required dylibs:
+
+;;; Commentary:
+
+;;
+
+;;; Code:
+
+(bind-func advect
+  "Advect grid in velocity field u, v with given timestep"
+  (lambda (fq timestep u v)
+    (let ((ix:i32 0) (idx 0)
+          (iy:i32 0) (idy 0)
+          (x:double* (salloc))
+          (y:double* (salloc)))
+      (dotimes (iy (tref fq 3))
+        (dotimes (ix (tref fq 2))
+          (pset! x 0 (+ (convert ix) (tref fq 4)))
+          (pset! y 0 (+ (convert iy) (tref fq 5)))
+          ;; First component: Integrate in time
+          (euler fq x y timestep u v)
+          ;; Second component: Interpolate from grid
+          (pset! (tref fq 1) idx (lerp fq (pref x 0) (pref y 0)))
+          (set! idx (+ idx 1)))))
+    void))
+
+(bind-func addInFlow
+  "Sets fluid quantity inside the given rect to value `v'"
+  (lambda (fq:FluidQuantity* x0 y0 x1 y1 v)
+    (let ((hx (tref fq 6))
+          (ix0 (convert (- (/ x0 hx) (tref fq 4)) i32))
+          (iy0 (convert (- (/ y0 hx) (tref fq 5)) i32))
+          (ix1 (convert (- (/ x1 hx) (tref fq 4)) i32))
+          (iy1 (convert (- (/ y1 hx) (tref fq 5)) i32))
+          (x (max ix0 0)) (y (max iy0 0)))
+      ;; Sets fluid quantity inside the given rect to value `v'
+      (while (< y (min iy1 (convert (tref fq 3))))
+        (while (< x (min ix1 (convert (tref fq 3))))
+          (if (< (fabs (pref (tref fq 0) (+ x (* y (tref fq 2)))))
+                 (fabs v))
+              (pset! (tref fq 0)
+                     (+ x (* y (tref fq 2)))
+                     v))
+          (set! x (+ x 1)))
+        (set! y (+ y 1)))
+      void)))
