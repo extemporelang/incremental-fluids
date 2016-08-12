@@ -1,12 +1,12 @@
 ;;; fluids-3.xtm --
 
-;; Author: Ben Swift
+;; Author: Ben Swift and Joseph Penington
 ;; Keywords: extempore
 ;; Required dylibs:
 
 ;;; Commentary:
 
-;;
+;;This code has an issue that causes it to stop working after a few hundred iterations
 
 ;;; Code:
 
@@ -19,7 +19,6 @@
   (lambda (x:double)
     (set! x (min (fabs x) 1.))
     (- 1. (* x x (- 3. (* 2. x))))))
-
 
 (bind-type FluidQuantity <double*,double*,i32,i32,double,double,double>
   (constructor? . #f)
@@ -86,8 +85,6 @@
   (lambda (fq:FluidQuantity* x y)
     (pref-ptr (tref fq 0) (+ (* y (tref fq 2)) x))))
 
-
-
  (bind-func cerp
    "Cubic intERPolate on grid at coordinates (x, y).
    Coordinates will be clamped to lie in simulation domain"
@@ -132,7 +129,6 @@ Coordinates will be clamped to lie in simulation domain"
          (lerp:[double,double,double,double]* x01 x11 x)
          y))))))
 
-
 (bind-func rungeKutta3
   (lambda (fq:FluidQuantity* xp:double* yp:double* timestep u:FluidQuantity* v:FluidQuantity*)
     (let ((hx (tref fq 6)) (x (pref xp 0)) (y (pref yp 0))
@@ -168,10 +164,6 @@ Coordinates will be clamped to lie in simulation domain"
 (bind-func src
   (lambda (fq:FluidQuantity*)
     (tref fq 0)))
-
-;; (bind-func dst
-;;   (lambda (fq:FluidQuantity*)
-;;     (tref fq 1)))
 
 (bind-func advect
   "Advect grid in velocity field u, v with given timestep"
@@ -235,93 +227,6 @@ Coordinates will be clamped to lie in simulation domain"
   13 - matrix off-diagonals x
   14 - matrix off-diagonals y")
 
-
-(bind-func matrix
-  (lambda(matix:double*)
-    (let ((a 3490))
-      (while (< a 3501)
-        (printf "%d:   %f\n" a (pref matix a))
-        (set! a (+ a 1)))
-        (printf "-------------------------\n"))))
-
-(bind-func matrixb
-  (lambda (fs:FluidSolver* matix:double*)
-    (let ((i:i32 0) (w (tref fs 3)) (h (tref fs 4)))
-      (dotimes (i (* w h))
-        (let ((k (pref matix i)))
-          (if (> k 0.1)
-            (printf "%d: %f  \n" i k)))))))
-
-(bind-func printinfouat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 1)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "u: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" k)
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
-(bind-func printinfovat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 2)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "v: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 1700. k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
-(bind-func printinfodat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 0)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "d: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
-
 (bind-func FluidSolver
   (lambda (w h density)
     (let ((hx (/ 1. (convert (min w h))))
@@ -366,6 +271,12 @@ Coordinates will be clamped to lie in simulation domain"
     (FluidQuantity_free (tref fs 1))
     (free (tref fs 7))
     (free (tref fs 8))
+    (free (tref fs 9))
+    (free (tref fs 10))
+    (free (tref fs 11))
+    (free (tref fs 12))
+    (free (tref fs 13))
+    (free (tref fs 14))
     (free fs)))
 
 ;; accessor functions for pointers to the raw data
@@ -381,9 +292,6 @@ Coordinates will be clamped to lie in simulation domain"
 (bind-func fsv
   (lambda (fs:FluidSolver*)
     (tref (tref fs 2) 0)))
-
-;; TODO. _src/_dst don't seem to be gettin set. should happen in either
-;; addInFlows or in applyPressure - need to check if that's happening
 
 (bind-func buildRhs
   "Builds the pressure right hand side as the negative divergence"
@@ -563,8 +471,7 @@ Coordinates will be clamped to lie in simulation domain"
                 (let ((sigmaNew (dotProduct fs z r)))
                   (scaledAdd fs s z s (/ sigmaNew sigma))
                   (set! sigma sigmaNew))
-                (set! iter (+ iter 1))))))
-          (printf "Exiting solver after %d iterations, maximum error is %f\n" iter maxError))))
+                (set! iter (+ iter 1)))))))))
 
 (bind-func applyPressure
   "Applies the computed pressure to the velocity field"
@@ -577,9 +484,6 @@ Coordinates will be clamped to lie in simulation domain"
           (p (tref fs 8)))
       (dotimes (y h)
         (dotimes (x w)
-          ;; this is a bit messy - we could get around it by just
-          ;; using different names for the ref/val `at' function
-          ;; instead of using polymorphism
           (pset! (at:[double*,FluidQuantity*,i32,i32]* u x y) 0 (- (at u x y) (* scale (pref p idx))))
           (pset! (at:[double*,FluidQuantity*,i32,i32]* u (+ x 1) y) 0 (+ (at u (+ x 1) y) (* scale (pref p idx))))
           (pset! (at:[double*,FluidQuantity*,i32,i32]* v x y) 0 (- (at v x y) (* scale (pref p idx))))

@@ -37,17 +37,17 @@
    (sys_slurp_file "examples/external/shader-tutorials/texture.vert")
    (sys_slurp_file "examples/external/shader-tutorials/texture.frag")))
 
-;; ($ (set! sp (ShaderProgram_create
-;;              (sys_slurp_file "1-matrixless/texture.vert")
-;;              (sys_slurp_file "1-matrixless/texture.frag"))))
+($ (set! sp (ShaderProgram_create
+            (sys_slurp_file "8-flip/texture.vert")
+            (sys_slurp_file "8-flip/texture.frag"))))
 
 (bind-func gl_draw_loop
-  (let ((sizex 64)
+  (let ((sizex 128)
         (sizey sizex)
         (densityAir 0.1) (densitySoot .4) (diffusion 0.02)
         (bodies (list (SolidBox 0.5 0.6 0.7 0.1 (* PI .25) 0.0 0.0 0.0)))
         (solver (FluidSolver sizex sizey bodies densityAir densitySoot diffusion))
-        (timestep 0.025) (iter 0) (u (tref solver 1))
+        (timestep 0.015) (iter 0) (u (tref solver 1))
         (imagedata:float* (alloc (* sizex sizey))))
     (lambda (time:i64 delta_t:double)
       (updatefs solver timestep)

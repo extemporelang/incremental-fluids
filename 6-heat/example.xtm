@@ -1,3 +1,7 @@
+;; Commentary:
+;; This example includes the ability to add both heat and in flows using the cursor and left
+;; or right shift respectively. All the values that are added can be changed during the simulation
+
 (sys:load "libs/external/glfw3.xtm")
 (sys:load "6-heat/fluids-6-heat.xtm")
 
@@ -45,36 +49,35 @@
         (glfwGetCursorPos window xpos ypos)
         (pset! xpos 0 (/ (pref xpos 0) 800.))
         (pset! ypos 0 (/ (pref ypos 0) 600.))
-        (printf "%f, %f\n" (pref xpos 0) (pref ypos 0))
-        (addInFlow solver (- (pref xpos 0) .05) (- (pref ypos 0) .05) 0.1 0.1 1.0 (+ (tref solver 20) 100) 0. 0.)
-        (println "Fluid added at %d,%d" (convert (* (pref xpos 0) 128) i32) (convert (* (pref ypos 0) 128) i32))))
+        (addInFlow solver (- (pref xpos 0) .05) (- (pref ypos 0) .05) 0.1 0.1 1.0 (+ (tref solver 20) 100.) 0. 0.)
+        (printf "Fluid added at %d,%d\n" (convert (* (pref xpos 0) 128.) i32) (convert (* (pref ypos 0) 128.) i32))))
         void)))
 
 (bind-func addcursorheat
  (lambda (fs:FluidSolver* window:i8*)
    (let ((xpos:double* (alloc)) (ypos:double* (alloc))
-        (ixpos:i32 0) (iypos:i32 0) (idx:i32 0) (temp (tref fs 16)))
+        (ixpos:i32 0) (iypos:i32 0) (idx:i32 0) (temp (tref fs 16))
+        (increase 100.))
     (if (= GLFW_PRESS (glfwGetKey window GLFW_KEY_LEFT_SHIFT))
      (begin
            (glfwGetCursorPos window xpos ypos)
            (set! ixpos (convert (/ (pref xpos 0) 6.25) i32))
            (set! iypos (convert (/ (pref ypos 0) 4.6875) i32))
-           (printf "%d, %d\n" ixpos iypos)
-           (pset! (tref temp 0) (+ (+ ixpos 1) (+ 1 (* (tref fs 3) iypos))) 1000.)
-           (pset! (tref temp 0) (+ (+ ixpos 1) (- (* (tref fs 3) iypos) 1)) 1000.)
-           (pset! (tref temp 0) (+ (+ ixpos 1) (* (tref fs 3) iypos)) 1000.)
-           (pset! (tref temp 0) (+ ixpos (+ 1 (* (tref fs 3) iypos))) 1000.)
-           (pset! (tref temp 0) (+ ixpos (- (* (tref fs 3) iypos) 1)) 1000.)
-           (pset! (tref temp 0) (+ ixpos (* (tref fs 3) iypos)) 1000.)
-           (pset! (tref temp 0) (+ (- ixpos 1) (+ 1 (* (tref fs 3) iypos))) 1000.)
-           (pset! (tref temp 0) (+ (- ixpos 1) (- (* (tref fs 3) iypos) 1)) 1000.)
-           (pset! (tref temp 0) (+ (- ixpos 1) (* (tref fs 3) iypos)) 1000.)
-           (println "Heat added around %d,%d" ixpos iypos)))
+           (pset! (tref temp 0) (+ (+ ixpos 1) (+ 1 (* (tref fs 3) iypos))) increase)
+           (pset! (tref temp 0) (+ (+ ixpos 1) (- (* (tref fs 3) iypos) 1)) increase)
+           (pset! (tref temp 0) (+ (+ ixpos 1) (* (tref fs 3) iypos)) increase)
+           (pset! (tref temp 0) (+ ixpos (+ 1 (* (tref fs 3) iypos))) increase)
+           (pset! (tref temp 0) (+ ixpos (- (* (tref fs 3) iypos) 1)) increase)
+           (pset! (tref temp 0) (+ ixpos (* (tref fs 3) iypos)) increase)
+           (pset! (tref temp 0) (+ (- ixpos 1) (+ 1 (* (tref fs 3) iypos))) increase)
+           (pset! (tref temp 0) (+ (- ixpos 1) (- (* (tref fs 3) iypos) 1)) increase)
+           (pset! (tref temp 0) (+ (- ixpos 1) (* (tref fs 3) iypos)) increase)
+           (printf "Heat added around %d,%d\n" ixpos iypos)))
     void)))
 
 ($ (set! sp (ShaderProgram_create
-            (sys_slurp_file "5-curved-boundaries/texture.vert")
-            (sys_slurp_file "5-curved-boundaries/texture.frag"))))
+            (sys_slurp_file "6-heat/texture.vert")
+            (sys_slurp_file "6-heat/texture.frag"))))
 
 (bind-func runsimulation
   (lambda (time:i64 delta_t:double solver:FluidSolver*)
@@ -85,6 +88,7 @@
     (tset! solver 18 densitySoot)
     (tset! solver 19 diffusion)
     (addInFlow solver 0.45 0.2 0.1 0.05 1.0 (tref solver 20) 0.0 1.0)
+    (glfwPollEvents)
     (addcursorheat solver window)
     (cursoraddInflow solver window)
     (updatefs solver timestep))))

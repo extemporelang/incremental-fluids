@@ -1,6 +1,6 @@
 ;;; fluids-3.xtm --
 
-;; Author: Ben Swift
+;; Author: Ben Swift and Joseph Penington
 ;; Keywords: extempore
 ;; Required dylibs:
 
@@ -46,7 +46,6 @@
         (pset! x 0 (+ (* (cos phi) tmpX) (* (sin phi) tmpY)))
         (pset! y 0 (+ (* (sin phi) tmpX -1.) (* (cos phi) tmpY)))
         )))
-
 
 (bind-type SolidBody <double,double,double,double,double,double,double,double,i64>
     (constructor? . #f)
@@ -206,22 +205,6 @@
   9  - cell type
   10  - index of closest body
   11 - mask auxiliary array")
-
-(bind-func matrixb
-  (lambda (fq:FluidQuantity* matix:i32*)
-    (let ((i:i32 0) (w (tref fq 2)) (h (tref fq 3)) (a:i32 0))
-      (dotimes (i (* w h))
-        (let ((k (pref matix i)))
-          (if (> k 0)
-            (begin
-            (printf "%d: %d " i k)
-            (set! a (+ 1 a))
-            (if (= a 5)
-            (begin
-            (println)
-            (set! a 0)))))))
-        (printf "\n************************\n"))))
-
 (bind-func FluidQuantity
   (lambda (w h ox oy hx)
     (let ((fq:FluidQuantity* (alloc))
@@ -529,7 +512,6 @@
           (if (and (<> (pref (tref fq 9) idx) CELL_FLUID)
                    (= (pref (tref fq 11) idx) 0))
               (begin
-            ;; (printf "idx: %d\n" idx)
               (set! border (cons idx border))))
           (set! x (+ 1 x)))
         (set! y (+ 1 y)))
@@ -539,22 +521,17 @@
           (pset! src idx (extrapolateNormal fq idx))
            (if (> (pref normalX (- idx 1)) 0.)
             (begin
-            ;;  (printf " 1 ")
-            (set! border (freeNeighbour fq (- idx 1) border (convert 2 i32)))))
+              (set! border (freeNeighbour fq (- idx 1) border (convert 2 i32)))))
            (if (< (pref normalX (+ idx 1)) 0.)
             (begin
-            ;;  (printf " 2 ")
-            (set! border (freeNeighbour fq (+ idx 1) border (convert 2 i32)))))
+              (set! border (freeNeighbour fq (+ idx 1) border (convert 2 i32)))))
            (if (> (pref normalY (- idx w)) 0.)
             (begin
-            ;;  (printf " 3 ")
-            (set! border (freeNeighbour fq (- idx w) border (convert 1 i32)))))
+              (set! border (freeNeighbour fq (- idx w) border (convert 1 i32)))))
            (if (< (pref normalY (+ idx  w)) 0.)
             (begin
-              ;;(printf " 4 ")
-            (set! border (freeNeighbour fq (+ idx w) border (convert 1 i32)))))
-            ;;(printf "\n")
-          ))))
+              (set! border (freeNeighbour fq (+ idx w) border (convert 1 i32)))))
+              ))))
 
 (bind-type FluidSolver <FluidQuantity*,FluidQuantity*,FluidQuantity*,i32,i32,double,double,double*,double*,double*,double*,double*,double*,double*,double*,List{SolidBody*}*>
   (constructor? . #f)
@@ -612,6 +589,7 @@
       (tfill! fs d u v w h hx density r p z s aDiag aPlusX aPlusY precon cBodies)
       fs)))
 
+
 (bind-func FluidSolver_free
   "free a halloc'ed FluidSolver created with FluidSolver_h"
   (lambda (fs:FluidSolver*)
@@ -620,86 +598,13 @@
     (FluidQuantity_free (tref fs 1))
     (free (tref fs 7))
     (free (tref fs 8))
+    (free (tref fs 9))
+    (free (tref fs 10))
+    (free (tref fs 11))
+    (free (tref fs 12))
+    (free (tref fs 13))
+    (free (tref fs 14))
     (free fs)))
-
-(bind-func matrix
-  (lambda(matix:double*)
-    (let ((a 9039))
-      (while (< a 9055)
-        (printf "%d:   %f\n" a (pref matix a))
-        (set! a (+ a 1)))
-        (printf "-------------------------\n"))))
-
-(bind-func printinfouat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 1)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "u: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" k)
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
-(bind-func printinfovat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 2)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "v: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
-(bind-func printinfodat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 0)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "d: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
-
 
 ;; accessor functions for pointers to the raw data
 
@@ -715,11 +620,6 @@
   (lambda (fs:FluidSolver*)
     (tref (tref fs 2) 0)))
 
-;; TODO. _src/_dst don't seem to be gettin set. should happen in either
-;; addInFlows or in applyPressure - need to check if that's happening
-
-
-
 (bind-func buildRhs
   "Builds the pressure right hand side as the negative divergence"
   (lambda (fs:FluidSolver*)
@@ -730,7 +630,6 @@
           (v (tref fs 2))
           (w (tref fs 3))
           (h (tref fs 4)))
-
       (while (< y h)
         (set! x 0)
         (while (< x w)
@@ -910,7 +809,7 @@
                   (scaledAdd fs s z s (/ sigmaNew sigma))
                   (set! sigma sigmaNew))
                 (set! iter (+ iter 1))))))
-          (printf "Exiting solver after %d iterations, maximum error is %f\n" iter maxError))))
+          )))
 
 (bind-func applyPressure
   "Applies the computed pressure to the velocity field"
@@ -926,9 +825,6 @@
         (dotimes (x w)
           (if (= (pref (tref d 9) idx) CELL_FLUID)
             (begin
-            ;; this is a bit messy - we could get around it by just
-            ;; using different names for the ref/val `at' function
-            ;; instead of using polymorphism
             (pset! (at:[double*,FluidQuantity*,i32,i32]* u x y) 0 (- (at u x y) (* scale (pref p idx))))
             (pset! (at:[double*,FluidQuantity*,i32,i32]* u (+ x 1) y) 0 (+ (at u (+ x 1) y) (* scale (pref p idx))))
             (pset! (at:[double*,FluidQuantity*,i32,i32]* v x y) 0 (- (at v x y) (* scale (pref p idx))))

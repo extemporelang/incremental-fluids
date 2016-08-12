@@ -1,27 +1,13 @@
 ;;; fluids-1-matrixless.xtm --
 
-;; Author: Ben Swift
+;; Authors: Ben Swift and Joseph Penington
 ;; Keywords: extempore
 ;; Required dylibs:
 
 ;;; Commentary:
 
-;;
-
 ;;; Code:
 
-
-(bind-func matrix
-  (lambda(matix:double*)
-    (let ((a 64))
-      (while (< a 75)
-        (printf "%d:   %f\n" a (pref matix a))
-        (set! a (+ a 1)))
-        (printf "-------------------------\n"))))
-
-(bind-func length
-  (lambda (x:double y:double)
-    (sqrt (+ (* x x) (* y y)))))
 
 (bind-func length
   (lambda (x:double y:double)
@@ -65,22 +51,6 @@
     (free (tref fq 1))
     (free fq)))
 
-
-(bind-func matrixb
-  (lambda (matix:double*)
-    (let ((i:i64 0) (w 128) (h 128) (a:i32 0))
-      (dotimes (i (* w h))
-        (let ((k (pref matix i)))
-          (if (> k 0.1)
-            (begin
-            (printf "%d: %f " i k)
-            (set! a (+ 1 a))
-            (if (= a 5)
-            (begin
-            (println)
-            (set! a 0)))))))
-        (printf "\n************************\n"))))
-
 (bind-func sum
   (lambda (fq:FluidQuantity*)
     (let ((running_sum 0.)
@@ -96,8 +66,8 @@
 (bind-func cerp
   (lambda (a b c d x)
     (let ((xsq (* x x)) (xcu (* x xsq))
-          (minV (min a (min b (min c (min d x)))))
-          (maxV (max a (max b (max c (max d x)))))
+          (minV (min a (min b (min c d))))
+          (maxV (max a (max b (max c d))))
           (t
             (+ (* a (- (+ 0.0 (* 1.0 xsq)) (+ (* 0.5 x) (* 0.5 xcu))))
                (* b (- (+ 1.0 (* 0.0 x) (* 1.5 xcu)) (* 2.5 xsq)))
@@ -137,7 +107,6 @@
             (let ((k (cerp:[double,double,double,double,double,double]* q0 q1 q2 q3 y)))
                (cerp:[double,double,double,double,double,double]* q0 q1 q2 q3 y))))))))
 
-
 (bind-func lerp
   "Linear intERPolate on grid at coordinates (x, y).
 Coordinates will be clamped to lie in simulation domain"
@@ -156,8 +125,7 @@ Coordinates will be clamped to lie in simulation domain"
         (lerp:[double,double,double,double]*
          (lerp:[double,double,double,double]* x00 x10 x)
          (lerp:[double,double,double,double]* x01 x11 x)
-         y))))))
-
+                                                      y))))))
 
 (bind-func rungeKutta3
  (lambda (fq:FluidQuantity* xp:double* yp:double* timestep u:FluidQuantity* v:FluidQuantity*)
@@ -175,7 +143,6 @@ Coordinates will be clamped to lie in simulation domain"
                  (pset! xp 0 (- x (* timestep (+ (* (/ 2. 9.) firstU) (* (/ 3. 9.) midU) (* (/ 4. 9.) lastU)))))
                  (pset! yp 0 (- y (* timestep (+ (* (/ 2. 9.) firstV) (* (/ 3. 9.) midV) (* (/ 4. 9.) lastV)))))
           void)))
-
 
 (bind-func euler
   (lambda (fq:FluidQuantity* x:double* y:double* timestep u:FluidQuantity* v:FluidQuantity*)
@@ -196,9 +163,6 @@ Coordinates will be clamped to lie in simulation domain"
   (lambda (fq:FluidQuantity*)
     (tref fq 0)))
 
-;; (bind-func dst
-;;   (lambda (fq:FluidQuantity*)
-;;     (tref fq 1)))
 (bind-func advect
   "Advect grid in velocity field u, v with given timestep"
   (lambda (fq timestep u v)
@@ -289,76 +253,6 @@ Coordinates will be clamped to lie in simulation domain"
     (free (tref fs 8))
     (free fs)))
 
-
-(bind-func printinfouat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 1)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "u: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" k)
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
-(bind-func printinfovat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 2)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "v: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
-(bind-func printinfodat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 0)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "d: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
 ;; accessor functions for pointers to the raw data
 
 (bind-func fsd
@@ -372,9 +266,6 @@ Coordinates will be clamped to lie in simulation domain"
 (bind-func fsv
   (lambda (fs:FluidSolver*)
     (tref (tref fs 2) 0)))
-
-;; TODO. _src/_dst don' seem to be gettin set. should happen in either
-;; addInFlows or in applyPressure - need to check if that's happening
 
 (bind-func buildRhs
   "Builds the pressure right hand side as the negative divergence"
@@ -429,7 +320,7 @@ a threshold, but will never exceed `limit' iterations"
             (set! maxDelta (max maxDelta (fabs (- (pref p idx) newP))))
             (pset! p idx newP)))
             (set! iter (+ iter 1)))
-        (printf "Exiting solver after %d iterations, maximum change is %f\n" iter maxDelta))))
+      )))
 
 (bind-func applyPressure
   "Applies the computed pressure to the velocity field"
@@ -442,9 +333,6 @@ a threshold, but will never exceed `limit' iterations"
           (p (tref fs 8)))
       (dotimes (y h)
         (dotimes (x w)
-          ;; this is a bit messy - we could get around it by just
-          ;; using different names for the ref/val `at' function
-          ;; instead of using polymorphism
           (pset! (at:[double*,FluidQuantity*,i32,i32]* u x y) 0 (- (at u x y) (* scale (pref p idx))))
           (pset! (at:[double*,FluidQuantity*,i32,i32]* u (+ x 1) y) 0 (+ (at u (+ x 1) y) (* scale (pref p idx))))
           (pset! (at:[double*,FluidQuantity*,i32,i32]* v x y) 0 (- (at v x y) (* scale (pref p idx))))

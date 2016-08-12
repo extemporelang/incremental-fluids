@@ -1,3 +1,8 @@
+;; Comentary:
+;; This code includes the ability to move the box around the screen with an approximation of
+;; the box pushing fluids around the screen. The speed can be altered in the move_body function
+;; and the way the box pushes the fluid around can be altered in the displacefluid function
+
 (sys:load "libs/external/glfw3.xtm")
 (sys:load "5-curved-boundaries/fluids-5-curved-boundaries.xtm")
 
@@ -51,19 +56,16 @@
     ;(bodies (list (SolidBox 0.5 0.6 0.1 0.1 (* PI .0) 0.0 0.0 0.0))))
     ;(tset! solver 15 bodies)
     (tset! solver 6 densityAir)
-    (addInFlow solver 0.5 0.3 0.2 0.2 1.0 0.0 0.0)
-;    (addInFlow solver 0.1 0.9 0.9 0.1 1.0 0.0 .0)
+    (addInFlow solver 0.35 0.1 0.3 0.2 1.0 0.0 1.0)
     (updatefs solver timestep))))
 
 (bind-func gl_draw_loop
   (let ((sizex 128)
         (sizey sizex)
-      ;  (hx (/ 1. (convert sizex)))
         (bodies (list (SolidBox 0.5 0.5 .1 .1 0. 0. 0. 0.)))
         (solver (FluidSolver sizex sizey 0.0 bodies)) (iteration 0)
         (imagedata:float* (alloc (* sizex sizey))))
     (lambda (time:i64 delta_t:double)
-      ;(printf "iteration:%d\n" iteration)
       (glfwPollEvents)
       (move_body (car (tref solver 15)) window solver)
       (runsimulation time delta_t solver)

@@ -37,9 +37,9 @@
    (sys_slurp_file "examples/external/shader-tutorials/texture.vert")
    (sys_slurp_file "examples/external/shader-tutorials/texture.frag")))
 
-;; ($ (set! sp (ShaderProgram_create
-;;              (sys_slurp_file "1-matrixless/texture.vert")
-;;              (sys_slurp_file "1-matrixless/texture.frag"))))
+($ (set! sp (ShaderProgram_create
+            (sys_slurp_file "3-conjugate-gradients/texture.vert")
+            (sys_slurp_file "3-conjugate-gradients/texture.frag"))))
 
 (bind-func gl_draw_loop 1000000
   (let ((sizex 128)
@@ -66,8 +66,3 @@
         (callback next_time gl_draw_loop next_time delta_t)))))
 
 (gl_draw_loop (now) (/ 1. 60.))
-
-;; (bind-func gl_draw_loop
-;;   (lambda (time:i64 delta_t:double)
-;;     (println "gl_draw_loop callback stopped")
-;;     #f))

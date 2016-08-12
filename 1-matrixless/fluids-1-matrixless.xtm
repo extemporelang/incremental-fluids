@@ -10,16 +10,6 @@
 
 ;;; Code:
 
-
-(bind-func matrix
-  (lambda(matix:double*)
-    (let ((a 64))
-      (while (< a 75)
-        (printf "%d:   %f\n" a (pref matix a))
-        (set! a (+ a 1)))
-        (printf "-------------------------\n"))))
-
-
 (bind-type FluidQuantity <double*,double*,i32,i32,double,double,double>
   (constructor? . #f)
   "0 - fluid data
@@ -52,22 +42,6 @@
     (free (tref fq 0))
     (free (tref fq 1))
     (free fq)))
-
-
-(bind-func matrixb
-  (lambda (matix:double*)
-    (let ((i:i64 0) (w 128) (h 128) (a:i32 0))
-      (dotimes (i (* w h))
-        (let ((k (pref matix i)))
-          (if (> k 0.1)
-            (begin
-            (printf "%d: %f " i k)
-            (set! a (+ 1 a))
-            (if (= a 5)
-            (begin
-            (println)
-            (set! a 0)))))))
-        (printf "\n************************\n"))))
 
 (bind-func sum
   (lambda (fq:FluidQuantity*)
@@ -127,10 +101,6 @@ Coordinates will be clamped to lie in simulation domain"
 (bind-func src
   (lambda (fq:FluidQuantity*)
     (tref fq 0)))
-
-;; (bind-func dst
-;;   (lambda (fq:FluidQuantity*)
-;;     (tref fq 1)))
 
 (bind-func advect
   "Advect grid in velocity field u, v with given timestep"
@@ -217,77 +187,6 @@ Coordinates will be clamped to lie in simulation domain"
     (free (tref fs 8))
     (free fs)))
 
-
-
-(bind-func printinfouat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 1)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "u: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" k)
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
-(bind-func printinfovat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 2)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "v: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
-(bind-func printinfodat
-    (lambda (fs:FluidSolver*)
-      (let ((x 0) (y 0) (d (tref fs 0)))
-        (let ((src (tref d 0)) (w (tref fs 3)) (h (tref fs 4)) (a 0))
-          (printf "d: \n")
-          (while (< y h)
-            (set! x 0)
-            (while (< x w)
-            (let ((k (at:[double,FluidQuantity*,i32,i32]* d x y)))
-            (if (< 0.05 k)
-            (begin
-            (printf "x:%d y:%d idx:%d" x y (+ (* y w) x))
-            (printf ":  %f |" (at:[double,FluidQuantity*,i32,i32]* d x y))
-            (set! a (+ a 1))
-            (if (= a 3)
-            (begin
-            (println )
-            (set! a 0)))))
-              (set! x (+ x 1))))
-            (set! y (+ y 1)))
-              (printf "----------------------\n")
-              ))))
-
 ;; accessor functions for pointers to the raw data
 
 (bind-func fsd
@@ -301,9 +200,6 @@ Coordinates will be clamped to lie in simulation domain"
 (bind-func fsv
   (lambda (fs:FluidSolver*)
     (tref (tref fs 2) 0)))
-
-;; TODO. _src/_dst don' seem to be gettin set. should happen in either
-;; addInFlows or in applyPressure - need to check if that's happening
 
 (bind-func buildRhs
   "Builds the pressure right hand side as the negative divergence"
@@ -357,8 +253,7 @@ a threshold, but will never exceed `limit' iterations"
             (set! newP (/ (- (pref (tref fs 7) idx) offDiag) diag))
             (set! maxDelta (max maxDelta (fabs (- (pref p idx) newP))))
             (pset! p idx newP)))
-            (set! iter (+ iter 1)))
-        (printf "Exiting solver after %d iterations, maximum change is %f\n" iter maxDelta))))
+            (set! iter (+ iter 1))))))
 
 (bind-func applyPressure
   "Applies the computed pressure to the velocity field"
@@ -371,9 +266,6 @@ a threshold, but will never exceed `limit' iterations"
           (p (tref fs 8)))
       (dotimes (y h)
         (dotimes (x w)
-          ;; this is a bit messy - we could get around it by just
-          ;; using different names for the ref/val `at' function
-          ;; instead of using polymorphism
           (pset! (at:[double*,FluidQuantity*,i32,i32]* u x y) 0 (- (at u x y) (* scale (pref p idx))))
           (pset! (at:[double*,FluidQuantity*,i32,i32]* u (+ x 1) y) 0 (+ (at u (+ x 1) y) (* scale (pref p idx))))
           (pset! (at:[double*,FluidQuantity*,i32,i32]* v x y) 0 (- (at v x y) (* scale (pref p idx))))

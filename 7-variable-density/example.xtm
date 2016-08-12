@@ -34,24 +34,32 @@
 (bind-val vao VAO* (VAO_create_ss_quad))
 (bind-val sp ShaderProgram
   (ShaderProgram_create
-   (sys_slurp_file "examples/external/shader-tutorials/texture.vert")
-   (sys_slurp_file "examples/external/shader-tutorials/texture.frag")))
+   (sys_slurp_file "1-matrixless/texture.vert")
+   (sys_slurp_file "1-matrixless/texture.frag")))
+($ (set! sp (ShaderProgram_create
+ (sys_slurp_file "7-variable-density/texture.vert")
+ (sys_slurp_file "7-variable-density/texture.frag"))))
 
-;; ($ (set! sp (ShaderProgram_create
-;;              (sys_slurp_file "1-matrixless/texture.vert")
-;;              (sys_slurp_file "1-matrixless/texture.frag"))))
+(bind-func runsimulation
+  (lambda (time:i64 delta_t:double solver:FluidSolver*)
+    (let ((densityAir 0.1) (densitySoot .5) (diffusion 0.01) (timestep 0.003)
+    (bodies (list (SolidBox 0.5 0.6 0.0 0.0 (* PI .25) 0.0 0.0 0.0))))
+    (tset! solver 15 bodies)
+    (tset! solver 17 densityAir)
+    (tset! solver 18 densitySoot)
+    (tset! solver 19 diffusion)
+    (addInFlow solver 0.45 0.2 0.1 0.05 1.0 (tref solver 20) 0.0 1.0)
+    ;; Fans can be added by compiling in an in flow with no density
+    ;    (addInFlow solver 0.1 0.9 0.9 0.1 0.0 0.0 3  .0)
+    (updatefs solver timestep))))
 
 (bind-func gl_draw_loop
-  (let ((sizex 128)
-        (sizey sizex) (renderHear #t)
-        (densityAir 0.1) (densitySoot 1.) (diffusion 0.01)
-        (bodies (list (SolidBox 0.5 0.6 0.7 0.1 (* PI .25) 0.0 0.0 0.0)))
-        (solver (FluidSolver sizex sizey bodies densityAir densitySoot diffusion))
-        (timestep 0.005) (iter 0) (u (tref solver 1))
+  (let ((sizex 192)
+        (sizey sizex)
+        (solver (FluidSolver sizex sizey null 0.0 0.0 0.0))
         (imagedata:float* (alloc (* sizex sizey))))
     (lambda (time:i64 delta_t:double)
-      (addInFlow solver 0.45 0.2 0.1 0.05 1.0 (tref solver 20) 0.0 0.0)
-      (updatefs solver timestep)
+      (runsimulation time delta_t solver)
       ;; draw the world
       (glClear GL_COLOR_BUFFER_BIT)
       (let ((texloc (glGetUniformLocation sp "tex")))
@@ -60,8 +68,8 @@
       ;; copy the double density data into the float buffer (since OpenGL prefers floats to doubles)
       (doloop (j (* sizex sizey))
         (pset! imagedata j (convert (pref (fsd solver) j)))
-        (if (= 1. (convert (pref (tref (tref solver 0) 9) j)))
-            (pset! imagedata j 1.)))
+        (if (= CELL_SOLID (pref (tref (tref solver 0) 9) j))
+            (pset! imagedata j 0.9)))
       (Texture_bind_data tex imagedata sizex sizey 1 GL_CLAMP_TO_EDGE GL_NEAREST)
       (VAO_bind_and_draw_arrays vao GL_TRIANGLE_STRIP 0 4)
       (glfwSwapBuffers window)
