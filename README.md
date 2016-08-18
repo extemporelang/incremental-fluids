@@ -1,24 +1,29 @@
-![Fluid](https://raw.github.com/tunabrain/incremental-fluids/master/Header.png)
+Incremental fluids - Extempore
+==============================
 
-Incremental fluids
-==================
+The idea of this project is to show off the capabilities of Extempore in a scientific environment. It can be used to change anything from variables such as fluid density to the way in which the code actually solves the pressure equations. The Incremental Fluids have been re-written in xtlang and most of the different solvers have been used to show a possible use for extempore. The original documentation explaining the solvers has been left in each folder. This project was also useful in finding areas in the documentation that are require more information for people learning to use extempore.
 
-The purpose of this project is to provide simple, easy to understand fluid solver implementations in C++, together with code documentation, algorithm explanation and recommended reading. It is meant for people with beginner to intermediate knowledge of computational fluid dynamics looking for working reference implementations to run and study.
+**Examples:**
+  #### 1 - Matrixless
 
-This project closely follows Robert Bridson's book, "Fluid Simulation for Computer Graphics", and implements a selection of the methods explained in the book. Ideally, you have a copy of the book sitting on your shelf, which will make it a lot easier to follow along with the code.
+  This is a very basic solver which introduces the use of using extempore to change all of the characteristics of the fluid and the inflow during run time. The density of the fluid can be changed, and so can the accuracy of the simulation by altering the length of each step through time.
 
-The solvers in this project come in a large variety, ranging from minimalistic to complex. All solvers are Eulerian in nature and run on a staggered Marker-and-Cell grid.
+  #### 2 - Better-Advection
 
-The different solvers are sorted into subfolders marked with a number and a short description. Each folder contains a small markdown file explaining the basic ideas behind the code and provides a list of recommended literature to read.
+  This slightly more complex solver is used in the Swapping Solvers example to show how Extempore can swap between using the two different solvers during runtime.
 
-The number of the solver defines a progression - codes with higher number build on codes with lower number, either adding on features or replacing methods with better ones. The basic classes and concepts, however, always stay the same - ideally, you just start with the simplest solver and work your way through to understand and visually confirm the difference in simulation. Code is only explained once when it is introduced and not in any of the successing solvers to avoid clutter.
+  #### 4 - Solid Bodies
 
-All solvers are single-file and require no external libraries apart from lodepng to save individual frames. Compilation should be straightforward on all platforms.
+  This solver introduces other bodies to the simulation and the shape and size of these bodies can be changed in the middle of a simulation. Solid Bodies also introduces the function 'setBoundaryCondition' which is an easy way to see how the solver can be changed during run time. The solver sets boundary conditions by pretending solving the pressure equations as if the body was moving in some direction (a feature that wasn't implemented because it is very computationally intensive). So you can change this function to solve the equation as it the boundary was moving towards or away from the fluid to make the fluid bounce ot stick to the body without the body actually moving.
 
-If you want, you can also check out a couple of videos rendered with code from this project (just ported to the GPU):
+  #### 5 - Curved Boundaries
 
- - http://www.youtube.com/watch?v=D5uqoB13UBM
- - http://www.youtube.com/watch?v=SzqYnjIR4n0
- - http://www.youtube.com/watch?v=e_S-a5VNXbg
- - http://www.youtube.com/watch?v=vMB8elqhum0
- 
+  As well as having more accurate solver for when the fluid hits solid bodies, the body can also be moved around the screen using the arrow keys. The speed at which it moves can be changed at run time.
+
+  #### 6 - Heat
+
+  In this example, you can add either heat or fluid using the cursor. The amount of heat added or the characteristics of the fluid added can be varied during runtime.
+
+  Ultimately, the point of this project was to show the flexibility of the extempore code, as opposed to any other language. While many of these features could be impleneted in many languages, by using extempore, anything from changing trivial things, like arbritarily set values used by the simulation, to fundamental things about how the solver works can be changed on the fly, often very easily.
+
+  The ability to do things like this can also be very helpful in creating the code. Especially in a situation like Fluid Dynamics, it is very useful to be able to change an aspect of the code and see immediately if the change has resulted in a more realistic simulation. While the compile time for a project this small isn't very long, for larger projects, it could be very useful to be able to change a small part of the code and see the effects without having to recompile the entire project.
