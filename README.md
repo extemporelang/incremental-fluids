@@ -1,7 +1,11 @@
 Incremental fluids - Extempore
 ==============================
 
+This project is an adaption of Incremental Fluids https://github.com/tunabrain/incremental-fluids which starts with a basic fluid solver and progressively becomes more complicated and adds more features.
+
 The idea of this project is to show off the capabilities of Extempore in a scientific environment. It can be used to change anything from variables such as fluid density to the way in which the code actually solves the pressure equations. The Incremental Fluids have been re-written in xtlang and most of the different solvers have been used to show a possible use for extempore. The original documentation explaining the solvers has been left in each folder. This project was also useful in finding areas in the documentation that are require more information for people learning to use extempore.
+
+The progression of the fluid solvers begins by increasing the complexity of the solver. These solvers are used to show how extempore can be used to change non-trivial aspects of the code. Then extra features are added to the simulation, beginning with solid bodies and then making the simulation more sophisticated with features like variable density and heat.
 
 **Examples:**
   #### 1 - Matrixless

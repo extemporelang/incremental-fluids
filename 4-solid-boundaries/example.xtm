@@ -43,7 +43,7 @@
 
 (bind-func runsimulation
   (lambda (time:i64 delta_t:double solver:FluidSolver*)
-    (let ((densityAir 1.) (densitySoot 1.) (diffusion 0.01) (timestep 0.005)
+    (let ((densityAir 1.) (timestep 0.005)
     (bodies (list (SolidSphere 0.45 0.45 0.1 (* PI .0) 0.0 0.0 0.0))))
     (tset! solver 15 bodies)
     (tset! solver 6 densityAir)
