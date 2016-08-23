@@ -1,5 +1,9 @@
 ;;; fluids-5-curved-boundaries.xtm --
 ;;
+;;This code is an Extempore translation by Joe Penington of the
+;;original .cpp fluid solver code written by Benedikt Bitterli, released
+;;under the following licence:
+;;
 ;;Copyright (c) 2013 Benedikt Bitterli
 ;;This software is provided 'as-is', without any express or implied
 ;;warranty. In no event will the authors be held liable for any damages
@@ -15,13 +19,6 @@
 ;;   misrepresented as being the original software.
 ;;   3. This notice may not be removed or altered from any source
 ;;   distribution.
-;;
-;; Author: Ben Swift and Joseph Penington
-;; Keywords: extempore
-;; Required dylibs:
-
-;;; Commentary:
-
 ;;
 
 ;;; Code:

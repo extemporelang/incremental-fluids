@@ -1,5 +1,8 @@
 ;;; fluids-1-matrixless.xtm --
 
+;;This code is an Extempore translation by Joe Penington of the
+;;original .cpp fluid solver code written by Benedikt Bitterli, released
+;;under the following licence:
 ;;
 ;; Copyright (c) 2013 Benedikt Bitterli
 ;; This software is provided 'as-is', without any express or implied
@@ -18,13 +21,6 @@
 ;;    distribution.
 ;;
 
-;; Author: Ben Swift
-;; Keywords: extempore
-;; Required dylibs:
-
-;;; Commentary:
-
-;;
 
 ;;; Code:
 
